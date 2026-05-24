@@ -27,6 +27,13 @@
         app:showAsAction="never" />
 
     <item
+        android:id="@+id/action_settings"
+        android:orderInCategory="104"
+        android:title="@string/tab_settings"
+        android:visible="false"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_rename"
         android:orderInCategory="105"
         android:title="@string/action_session_name"

@@ -638,11 +638,13 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             menu.findItem(R.id.action_import_scramble).setVisible(true);
             menu.findItem(R.id.action_export_scramble).setVisible(true);
             menu.findItem(R.id.action_last).setVisible(true);
+            menu.findItem(R.id.action_settings).setVisible(true);
         } else {
             menu.findItem(R.id.action_scramble).setVisible(false);
             menu.findItem(R.id.action_import_scramble).setVisible(false);
             menu.findItem(R.id.action_export_scramble).setVisible(false);
             menu.findItem(R.id.action_last).setVisible(false);
+            menu.findItem(R.id.action_settings).setVisible(false);
         }
         if (curTab == 1) {
             menu.findItem(R.id.action_rename).setVisible(true);
@@ -684,6 +686,12 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                     showDetail(result.length() - 1);
                 }
                 break;
+            case R.id.action_settings:
+                closeOptionsMenu();
+                curTab = 2;
+                tabHost.setCurrentTab(curTab);
+                rbSetting.setChecked(true);
+                return true;
             case R.id.action_rename:    //分组命名
                 factory = LayoutInflater.from(context);
                 view = factory.inflate(R.layout.dialog_session_name, null);
