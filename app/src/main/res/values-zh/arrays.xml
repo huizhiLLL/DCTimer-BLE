@@ -367,6 +367,7 @@
         <item>使用解法</item>
         <item>解法朝向基准</item>
         <item>打乱推进样式</item>
+        <item>虚拟魔方外观</item>
         <item>虚拟魔方大小</item>
         <item>陀螺仪跟随视角</item>
         <item>布局</item>
@@ -392,6 +393,11 @@
     <array name="opt_smart_scramble_progress">
         <item>已推进自动消失</item>
         <item>已推进变浅保留</item>
+    </array>
+
+    <array name="opt_smart_cube_appearance">
+        <item>黑底贴纸</item>
+        <item>实色</item>
     </array>
 
     <array name="opt_smart_solve_method">

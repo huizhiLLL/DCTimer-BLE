@@ -25,6 +25,9 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 public class SmartCube3DView extends GLSurfaceView {
+    public static final int APPEARANCE_BLACK_STICKER = 0;
+    public static final int APPEARANCE_SOLID = 1;
+
     private static final String SOLVED_FACELET = "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB";
     private static final long DEFAULT_ANIMATION_DURATION_MS = 110L;
     private static final long GYRO_FRAME_IDLE_MS = 220L;
@@ -121,6 +124,16 @@ public class SmartCube3DView extends GLSurfaceView {
             @Override
             public void run() {
                 cubeRenderer.setState(validState);
+            }
+        });
+        requestRender();
+    }
+
+    public void setAppearanceMode(final int appearanceMode) {
+        queueEvent(new Runnable() {
+            @Override
+            public void run() {
+                cubeRenderer.setAppearanceMode(appearanceMode);
             }
         });
         requestRender();
@@ -343,10 +356,13 @@ public class SmartCube3DView extends GLSurfaceView {
         private static final float FACE_DISTANCE = 1.5f;
         private static final float CELL_HALF = 0.505f;
         private static final float STICKER_HALF = 0.435f;
+        private static final float SOLID_STICKER_HALF = 0.490f;
         private static final float CELL_CORNER_RADIUS = 0.045f;
         private static final float STICKER_CORNER_RADIUS_SMALL = 0.045f;
         private static final float STICKER_CORNER_RADIUS_LARGE = 0.255f;
+        private static final float SOLID_CORNER_RADIUS_SCALE = SOLID_STICKER_HALF / STICKER_HALF;
         private static final float STICKER_Z_OFFSET = 0.032f;
+        private static final float SOLID_STICKER_Z_OFFSET = 0.010f;
         private static final int CORNER_SEGMENTS = 5;
         private static final float MAX_VIEW_PITCH = 115f;
         private static final float PROJECTION_FIT_SCALE = 1.18f;
@@ -393,6 +409,7 @@ public class SmartCube3DView extends GLSurfaceView {
         private Quaternion targetGyroQuaternion;
         private Quaternion calibrationInverse;
         private boolean gyroViewEnabled;
+        private int appearanceMode = APPEARANCE_BLACK_STICKER;
         private long lastGyroFrameTimeNanos;
         private int program;
         private int positionHandle;
@@ -459,6 +476,11 @@ public class SmartCube3DView extends GLSurfaceView {
             if (animationProgress >= 1f && animationEndState != null) {
                 setState(animationEndState);
             }
+        }
+
+        void setAppearanceMode(int appearanceMode) {
+            this.appearanceMode = appearanceMode == APPEARANCE_SOLID
+                    ? APPEARANCE_SOLID : APPEARANCE_BLACK_STICKER;
         }
 
         void rotateView(float deltaYaw, float deltaPitch) {
@@ -601,14 +623,20 @@ public class SmartCube3DView extends GLSurfaceView {
             for (int i = 0; i < FACELETS.length; i++) {
                 Facelet facelet = FACELETS[i];
                 Transform transform = buildTransform(facelet, moveSpec, moveProgress);
-                int baseColor = shadeColor(0xff111111, transform.normal, 0.42f);
-                int stickerColor = shadeColor(faceColor(state.charAt(i)), transform.normal, 0.86f);
+                boolean solidAppearance = appearanceMode == APPEARANCE_SOLID;
+                int baseColor = solidAppearance
+                        ? shadeColor(0xffdddddd, transform.normal, 0.70f)
+                        : shadeColor(0xff111111, transform.normal, 0.42f);
+                int stickerColor = shadeColor(faceColor(state.charAt(i)), transform.normal, solidAppearance ? 0.94f : 0.86f);
+                float stickerHalf = solidAppearance ? SOLID_STICKER_HALF : STICKER_HALF;
+                float[] cornerRadii = solidAppearance ? facelet.solidCornerRadii : facelet.stickerCornerRadii;
+                float stickerZOffset = solidAppearance ? SOLID_STICKER_Z_OFFSET : STICKER_Z_OFFSET;
                 drawRoundedQuad(transform.center, transform.u, transform.v, transform.normal,
                         CELL_HALF, CELL_CORNER_RADIUS, baseColor);
                 GLES20.glEnable(GLES20.GL_POLYGON_OFFSET_FILL);
                 GLES20.glPolygonOffset(-1f, -1f);
-                drawRoundedQuad(transform.center.add(transform.normal.scale(STICKER_Z_OFFSET)), transform.u, transform.v,
-                        transform.normal, STICKER_HALF, facelet.stickerCornerRadii, stickerColor);
+                drawRoundedQuad(transform.center.add(transform.normal.scale(stickerZOffset)), transform.u, transform.v,
+                        transform.normal, stickerHalf, cornerRadii, stickerColor);
                 GLES20.glDisable(GLES20.GL_POLYGON_OFFSET_FILL);
             }
         }
@@ -764,7 +792,8 @@ public class SmartCube3DView extends GLSurfaceView {
                     float uOffset = col - 1f;
                     float vOffset = row - 1f;
                     Vec3 center = faceCenter.add(u.scale(uOffset)).add(v.scale(vOffset));
-                    facelets.add(new Facelet(center, normal, u, v, createStickerCornerRadii(row, col)));
+                    float[] stickerCornerRadii = createStickerCornerRadii(row, col);
+                    facelets.add(new Facelet(center, normal, u, v, stickerCornerRadii, scaleCornerRadii(stickerCornerRadii)));
                 }
             }
         }
@@ -801,6 +830,14 @@ public class SmartCube3DView extends GLSurfaceView {
             }
         }
 
+        private static float[] scaleCornerRadii(float[] radii) {
+            float[] scaled = new float[radii.length];
+            for (int i = 0; i < radii.length; i++) {
+                scaled[i] = radii[i] * SOLID_CORNER_RADIUS_SCALE;
+            }
+            return scaled;
+        }
+
         private int createProgram(String vertexShaderSource, String fragmentShaderSource) {
             int vertexShader = loadShader(GLES20.GL_VERTEX_SHADER, vertexShaderSource);
             int fragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, fragmentShaderSource);
@@ -825,13 +862,15 @@ public class SmartCube3DView extends GLSurfaceView {
         final Vec3 u;
         final Vec3 v;
         final float[] stickerCornerRadii;
+        final float[] solidCornerRadii;
 
-        Facelet(Vec3 center, Vec3 normal, Vec3 u, Vec3 v, float[] stickerCornerRadii) {
+        Facelet(Vec3 center, Vec3 normal, Vec3 u, Vec3 v, float[] stickerCornerRadii, float[] solidCornerRadii) {
             this.center = center;
             this.normal = normal;
             this.u = u;
             this.v = v;
             this.stickerCornerRadii = stickerCornerRadii;
+            this.solidCornerRadii = solidCornerRadii;
         }
     }
 

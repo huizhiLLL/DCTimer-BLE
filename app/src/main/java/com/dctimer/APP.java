@@ -104,6 +104,7 @@ public class APP extends Application {
     public static int smartCubeSolveOrientation;
     public static int smartCubeSolveMethod;
     public static int smartCubeScrambleProgressStyle;
+    public static int smartCubeAppearance;
     public static int smartCubeSize;
     public static boolean smartCubeGyroFollow;
     public static int smartCubeLayoutMode;
@@ -243,6 +244,8 @@ public class APP extends Application {
         if (smartCubeSolveMethod < 0 || smartCubeSolveMethod > 1) smartCubeSolveMethod = 0;
         smartCubeScrambleProgressStyle = sp.getInt("scadv", 0);
         if (smartCubeScrambleProgressStyle < 0 || smartCubeScrambleProgressStyle > 1) smartCubeScrambleProgressStyle = 0;
+        smartCubeAppearance = sp.getInt("scappearance", 0);
+        if (smartCubeAppearance < 0 || smartCubeAppearance > 1) smartCubeAppearance = 0;
         smartCubeSize = sp.getInt("scvsize", 220);
         if (smartCubeSize < 160 || smartCubeSize > 320) smartCubeSize = 220;
         smartCubeGyroFollow = sp.getBoolean("scgyro", true);
@@ -271,7 +274,7 @@ public class APP extends Application {
         for (int i = 0; i < 3; i++) swipeType[i] = i + 1;
         swipeType[3] = 5;
         samplingRate = 44100; dataFormat = AudioFormat.ENCODING_PCM_8BIT;
-        smartCubeSolveOrientation = 0; smartCubeSolveMethod = 0; smartCubeScrambleProgressStyle = 0;
+        smartCubeSolveOrientation = 0; smartCubeSolveMethod = 0; smartCubeScrambleProgressStyle = 0; smartCubeAppearance = 0;
         smartCubeSize = 220; smartCubeGyroFollow = true; smartCubeLayoutMode = 0;
         appLanguage = 0; applyAppLanguage(appLanguage);
     }

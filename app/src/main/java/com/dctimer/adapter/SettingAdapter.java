@@ -42,6 +42,7 @@ public class SettingAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     public static final int ST_SMART_SCRAMBLE_PROGRESS = 16;
     public static final int ST_SMART_LAYOUT = 17;
     public static final int ST_SMART_SOLVE_METHOD = 18;
+    public static final int ST_SMART_APPEARANCE = 31;
     public static final int ST_SMART_CUBE_SIZE = 24;
     public static final int ST_SCR_FONT = 19;
     public static final int ST_MONO_SCRAMBLE = 20;
@@ -187,6 +188,9 @@ public class SettingAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                     break;
                 case ST_SMART_SCRAMBLE_PROGRESS:
                     map.put("detail", dct.getResources().getStringArray(R.array.opt_smart_scramble_progress)[smartCubeScrambleProgressStyle]);
+                    break;
+                case ST_SMART_APPEARANCE:
+                    map.put("detail", dct.getResources().getStringArray(R.array.opt_smart_cube_appearance)[smartCubeAppearance]);
                     break;
                 case ST_SMART_CUBE_SIZE:
                     map.put("detail", String.valueOf(smartCubeSize));

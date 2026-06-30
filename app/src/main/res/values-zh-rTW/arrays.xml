@@ -367,6 +367,7 @@
         <item>使用解法</item>
         <item>解法朝向基準</item>
         <item>轉亂推進樣式</item>
+        <item>虛擬方塊外觀</item>
         <item>虛擬方塊大小</item>
         <item>陀螺儀跟隨視角</item>
         <item>佈局</item>
@@ -392,6 +393,11 @@
     <array name="opt_smart_scramble_progress">
         <item>已推進自動消失</item>
         <item>已推進變淺保留</item>
+    </array>
+
+    <array name="opt_smart_cube_appearance">
+        <item>黑底貼紙</item>
+        <item>實色</item>
     </array>
 
     <array name="opt_smart_solve_method">

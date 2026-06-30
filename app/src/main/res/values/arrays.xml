@@ -374,6 +374,7 @@
         <item>Use method</item>
         <item>Solution orientation</item>
         <item>Scramble progress style</item>
+        <item>Virtual cube appearance</item>
         <item>Virtual cube size</item>
         <item>Gyro follows view</item>
         <item>Layout</item>
@@ -399,6 +400,11 @@
     <array name="opt_smart_scramble_progress">
         <item>Hide completed moves</item>
         <item>Dim completed moves</item>
+    </array>
+
+    <array name="opt_smart_cube_appearance">
+        <item>Black base stickers</item>
+        <item>Solid color</item>
     </array>
 
     <array name="opt_smart_solve_method">

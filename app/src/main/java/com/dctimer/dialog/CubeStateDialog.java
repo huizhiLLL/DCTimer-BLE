@@ -45,6 +45,9 @@ public class CubeStateDialog extends DialogFragment {
         ivBattery = view.findViewById(R.id.iv_battery);
         setBatteryImage(batteryValue);
         cube3DView = view.findViewById(R.id.gl_cube_state);
+        if (cube3DView != null && getActivity() instanceof MainActivity) {
+            ((MainActivity) getActivity()).applySmartCubeAppearance(cube3DView);
+        }
         imageView = view.findViewById(R.id.image_view);
         setImage();
         Button btRefresh = view.findViewById(R.id.btn_refresh);
@@ -139,6 +142,9 @@ public class CubeStateDialog extends DialogFragment {
                 if (imageView != null) {
                     imageView.setVisibility(View.GONE);
                 }
+                if (getActivity() instanceof MainActivity) {
+                    ((MainActivity) getActivity()).applySmartCubeAppearance(cube3DView);
+                }
                 cube3DView.showCubeState(currentCube.getCubeState());
                 applyLatestGyro();
             } else if (imageView != null) {
@@ -165,10 +171,19 @@ public class CubeStateDialog extends DialogFragment {
             cube.setCubeState(toState);
         }
         if (cube3DView != null) {
+            if (getActivity() instanceof MainActivity) {
+                ((MainActivity) getActivity()).applySmartCubeAppearance(cube3DView);
+            }
             cube3DView.animateMove(fromState, toState, move);
             applyLatestGyro();
         } else if (imageView != null) {
             imageView.animateMove(fromState, toState, move);
+        }
+    }
+
+    public void setAppearanceMode(int appearanceMode) {
+        if (cube3DView != null) {
+            cube3DView.setAppearanceMode(appearanceMode);
         }
     }
 
