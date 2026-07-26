@@ -5,6 +5,8 @@ import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -53,12 +55,15 @@ public class GanCubeProtocol implements SmartCubeProtocol {
     private static final int[] AXIS_MASKS = {2, 32, 8, 1, 16, 4};
     private static final int MAX_MOVE_DELTA_MS = 0xffff;
     private static final float MIN_GYRO_QUATERNION_NORM = 1.0e-6f;
+    private static final int MAX_BATTERY_REQUEST_ATTEMPTS = 2;
+    private static final long BATTERY_RESPONSE_TIMEOUT_MS = 1000L;
 
     private final MainActivity context;
     private final SmartCube smartCube;
     private final GanCubeCipher cipher = new GanCubeCipher();
     private final ArrayDeque<byte[]> requestQueue = new ArrayDeque<>();
     private final ArrayDeque<MoveEvent> moveBuffer = new ArrayDeque<>();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     private BluetoothGatt gatt;
     private BluetoothGattCharacteristic readCharacteristic;
@@ -75,7 +80,24 @@ public class GanCubeProtocol implements SmartCubeProtocol {
     private long lastEmittedLocTime = -1L;
     private long prevMoveLocTime = -1L;
     private int batteryLevel;
+    private boolean initialV4FaceletsReceived;
+    private volatile boolean batteryReceived;
+    private int batteryRequestAttempts;
     private final ArrayDeque<Long> historyEstimateLocQueue = new ArrayDeque<>();
+    private final Runnable batteryResponseTimeout = new Runnable() {
+        @Override
+        public void run() {
+            synchronized (GanCubeProtocol.this) {
+                if (variant == null || !notificationsReady || batteryReceived
+                        || batteryRequestAttempts >= MAX_BATTERY_REQUEST_ATTEMPTS) {
+                    return;
+                }
+                batteryRequestAttempts++;
+                Log.w(TAG, "GAN battery response timeout, retrying");
+                enqueueRequest(batteryRequest());
+            }
+        }
+    };
 
     private enum Variant {
         V2, V3, V4
@@ -165,7 +187,8 @@ public class GanCubeProtocol implements SmartCubeProtocol {
     }
 
     @Override
-    public void clear() {
+    public synchronized void clear() {
+        mainHandler.removeCallbacks(batteryResponseTimeout);
         requestQueue.clear();
         moveBuffer.clear();
         historyEstimateLocQueue.clear();
@@ -184,6 +207,9 @@ public class GanCubeProtocol implements SmartCubeProtocol {
         lastEmittedLocTime = -1L;
         prevMoveLocTime = -1L;
         batteryLevel = 0;
+        initialV4FaceletsReceived = false;
+        batteryReceived = false;
+        batteryRequestAttempts = 0;
     }
 
     @Override
@@ -197,7 +223,7 @@ public class GanCubeProtocol implements SmartCubeProtocol {
     }
 
     @Override
-    public void onCharacteristicWrite(BluetoothGattCharacteristic characteristic, int status) {
+    public synchronized void onCharacteristicWrite(BluetoothGattCharacteristic characteristic, int status) {
         if (characteristic == null || writeCharacteristic == null || !writeCharacteristic.getUuid().equals(characteristic.getUuid())) {
             return;
         }
@@ -309,24 +335,45 @@ public class GanCubeProtocol implements SmartCubeProtocol {
     private void enqueueInitialRequests() {
         switch (variant) {
             case V2:
-                enqueueRequest(v2SimpleRequest(5));
+                requestInitialBattery();
                 enqueueRequest(v2SimpleRequest(4));
-                enqueueRequest(v2SimpleRequest(9));
+                enqueueRequest(v2SimpleRequest(5));
                 break;
             case V3:
-                enqueueRequest(v3SimpleRequest(4));
+                requestInitialBattery();
                 enqueueRequest(v3SimpleRequest(1));
-                enqueueRequest(v3SimpleRequest(7));
+                enqueueRequest(v3SimpleRequest(4));
                 break;
             case V4:
-                enqueueRequest(v4RequestHardwareInfo());
+                requestInitialBattery();
                 enqueueRequest(v4RequestFacelets());
-                enqueueRequest(v4RequestBattery());
+                enqueueRequest(v4RequestHardwareInfo());
                 break;
         }
     }
 
-    private void enqueueRequest(byte[] request) {
+    private void requestInitialBattery() {
+        batteryReceived = false;
+        batteryRequestAttempts = 1;
+        enqueueRequest(batteryRequest());
+        mainHandler.removeCallbacks(batteryResponseTimeout);
+        mainHandler.postDelayed(batteryResponseTimeout, BATTERY_RESPONSE_TIMEOUT_MS);
+    }
+
+    private byte[] batteryRequest() {
+        switch (variant) {
+            case V2:
+                return v2SimpleRequest(9);
+            case V3:
+                return v3SimpleRequest(7);
+            case V4:
+                return v4RequestBattery();
+            default:
+                return null;
+        }
+    }
+
+    private synchronized void enqueueRequest(byte[] request) {
         if (request == null) {
             return;
         }
@@ -334,7 +381,7 @@ public class GanCubeProtocol implements SmartCubeProtocol {
         sendNextRequest();
     }
 
-    private void sendNextRequest() {
+    private synchronized void sendNextRequest() {
         if (!notificationsReady || writePending || gatt == null || writeCharacteristic == null || requestQueue.isEmpty()) {
             return;
         }
@@ -547,6 +594,8 @@ public class GanCubeProtocol implements SmartCubeProtocol {
     }
 
     private void updateBatteryLevel(int level) {
+        batteryReceived = true;
+        mainHandler.removeCallbacks(batteryResponseTimeout);
         batteryLevel = level;
         smartCube.setBatteryValue(batteryLevel);
         context.refreshSmartCubeStateUi();
@@ -583,7 +632,10 @@ public class GanCubeProtocol implements SmartCubeProtocol {
             moveCnt &= 0xff;
             currentMoveCnt = moveCnt;
             prevMoveLocTime = locTime;
-            if (moveCnt == prevMoveCnt || prevMoveCnt == -1) {
+            if (!initialV4FaceletsReceived) {
+                continue;
+            }
+            if (moveCnt == prevMoveCnt) {
                 continue;
             }
             long ts = parseBits(bits, offset + 40, 8);
@@ -596,6 +648,9 @@ public class GanCubeProtocol implements SmartCubeProtocol {
                 break;
             }
             int move = convertQuarterMove(axis, pow);
+            if (prevMoveCnt == -1) {
+                prevMoveCnt = (moveCnt - 1) & 0xff;
+            }
             moveBuffer.offer(new MoveEvent(moveCnt, move, ts, locTime));
         }
         evictMoveBuffer(true);
@@ -633,20 +688,7 @@ public class GanCubeProtocol implements SmartCubeProtocol {
     }
 
     private void handleV4Facelets(String bits, long locTime) {
-        int moveCnt = (parseBits(bits, 24, 8) << 8 | parseBits(bits, 16, 8)) & 0xff;
-        currentMoveCnt = moveCnt;
-        if (prevMoveCnt != -1) {
-            int diff = (moveCnt - prevMoveCnt) & 0xff;
-            if (prevMoveLocTime > 0 && locTime - prevMoveLocTime > 500 && diff > 0 && moveCnt != 0) {
-                int startMoveCnt = moveBuffer.isEmpty() ? ((moveCnt + 1) & 0xff) : moveBuffer.peekFirst().moveCnt;
-                Log.w(TAG, "GAN v4 facelet ahead, request history prev=" + prevMoveCnt
-                        + " current=" + moveCnt
-                        + " head=" + startMoveCnt
-                        + " diff=" + diff
-                        + " wait=" + (locTime - prevMoveLocTime)
-                        + "ms");
-                requestMoveHistory(startMoveCnt, diff + 1, locTime);
-            }
+        if (initialV4FaceletsReceived) {
             return;
         }
         String facelet = parseFacelet(bits, 32, 53, 69, 113);
@@ -657,7 +699,9 @@ public class GanCubeProtocol implements SmartCubeProtocol {
             Log.e(TAG, "GAN v4 初始状态校验失败");
             return;
         }
-        prevMoveCnt = moveCnt;
+        // Some GAN cubes do not provide a usable step in the facelet response.
+        // Start move tracking from the first live move instead.
+        initialV4FaceletsReceived = true;
         lastEmittedDeviceTs = -1L;
         showInitialStateDialogIfNeeded();
         Log.w(TAG, "GAN v4 初始状态: " + facelet);
