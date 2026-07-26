@@ -25,17 +25,15 @@ public class CubeStateDialog extends DialogFragment {
     private SmartCube3DView cube3DView;
 
     public static CubeStateDialog newInstance(SmartCube cube) {
-        CubeStateDialog dialog = new CubeStateDialog();
-        Bundle bundle = new Bundle();
-        bundle.putSerializable("cube", cube);
-        dialog.setArguments(bundle);
-        return dialog;
+        // SmartCube is a live BLE model and contains Activity-owned callbacks.
+        // Do not put it in Fragment arguments: FragmentManager serializes the
+        // arguments when the Activity goes to the background.
+        return new CubeStateDialog();
     }
 
     @NonNull
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
-        cube = getArguments() == null ? null : (SmartCube) getArguments().getSerializable("cube");
         AlertDialog.Builder buidler = new AlertDialog.Builder(getActivity());
         View view = getActivity().getLayoutInflater().inflate(R.layout.dialog_cube_state, null);
         tvBattery = view.findViewById(R.id.tv_battery);
