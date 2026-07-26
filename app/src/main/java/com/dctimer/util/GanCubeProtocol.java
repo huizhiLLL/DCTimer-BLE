@@ -227,6 +227,23 @@ public class GanCubeProtocol implements SmartCubeProtocol {
         }
     }
 
+    @Override
+    public void onLocalCubeReset(String cubeState) {
+        moveBuffer.clear();
+        historyEstimateLocQueue.clear();
+        prevMoveCnt = -1;
+        currentMoveCnt = -1;
+        lastEmittedDeviceTs = -1L;
+        lastEmittedLocTime = -1L;
+        prevMoveLocTime = -1L;
+
+        if (variant == null) {
+            Log.w(TAG, "GAN reset ignored: protocol is not connected");
+            return;
+        }
+        enqueueRequest(resetRequest());
+    }
+
     private Variant resolveVariant(BluetoothGattService service) {
         if (service == null) {
             return null;
@@ -341,11 +358,26 @@ public class GanCubeProtocol implements SmartCubeProtocol {
         return req;
     }
 
+    private byte[] v2ResetRequest() {
+        return new byte[]{
+                0x0A, 0x05, 0x39, 0x77, 0x00, 0x00, 0x01, 0x23,
+                0x45, 0x67, (byte) 0x89, (byte) 0xAB, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00
+        };
+    }
+
     private byte[] v3SimpleRequest(int opcode) {
         byte[] req = new byte[16];
         req[0] = 0x68;
         req[1] = (byte) opcode;
         return req;
+    }
+
+    private byte[] v3ResetRequest() {
+        return new byte[]{
+                0x68, 0x05, 0x05, 0x39, 0x77, 0x00, 0x00, 0x01,
+                0x23, 0x45, 0x67, (byte) 0x89, (byte) 0xAB, 0x00, 0x00, 0x00
+        };
     }
 
     private byte[] v4RequestHardwareInfo() {
@@ -369,6 +401,35 @@ public class GanCubeProtocol implements SmartCubeProtocol {
         req[1] = 0x04;
         req[3] = (byte) 0xEF;
         return req;
+    }
+
+    private byte[] v4ResetRequest() {
+        byte[] req = new byte[20];
+        req[0] = (byte) 0xD2;
+        req[1] = 0x0D;
+        req[2] = 0x05;
+        req[3] = 0x39;
+        req[4] = 0x77;
+        req[7] = 0x01;
+        req[8] = 0x23;
+        req[9] = 0x45;
+        req[10] = 0x67;
+        req[11] = (byte) 0x89;
+        req[12] = (byte) 0xAB;
+        return req;
+    }
+
+    private byte[] resetRequest() {
+        switch (variant) {
+            case V2:
+                return v2ResetRequest();
+            case V3:
+                return v3ResetRequest();
+            case V4:
+                return v4ResetRequest();
+            default:
+                return null;
+        }
     }
 
     private byte[] v3RequestMoveHistory(int startMoveCnt, int numberOfMoves) {
