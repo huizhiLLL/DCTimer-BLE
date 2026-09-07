@@ -366,7 +366,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 }
             }
         });
-        updateScrambleHeight();
+        int tvHeight = (int) (dm.heightPixels - 76 * dpi) / 2;
+        tvScramble.setHeight(tvHeight);
         tvStat = findViewById(R.id.tv_stat);
         tvMulPhase = findViewById(R.id.tv_multi_phase);
         //成绩
@@ -624,7 +625,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             }
         }
         getWindowManager().getDefaultDisplay().getMetrics(dm);
-        updateScrambleHeight();
+        int tvHeight = (int) (dm.heightPixels - 76 * dpi) / 2;
+        tvScramble.setHeight(tvHeight);
         showScramble();
         if (!useBgcolor) try {
             setBackground();
@@ -4635,11 +4637,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         if (monoFont)
             tvScramble.setTypeface(Typeface.create("monospace", Typeface.NORMAL));
         else tvScramble.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
-    }
-
-    private void updateScrambleHeight() {
-        int tvHeight = Math.max(0, (int) (dm.heightPixels - 76 * dpi) / 2);
-        tvScramble.setMaxHeight(tvHeight);
     }
 
     public void setScrambleSize() {
