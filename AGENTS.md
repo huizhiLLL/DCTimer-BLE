@@ -21,6 +21,7 @@
 ## 关键目录索引
 
 - `docs/`：项目状态、架构边界和路线图；开始功能开发或排查前，优先阅读 `project.md`、`architecture.md`、`roadmap.md`。
+- `docs/others/`：非主线协议记录、专项训练计划和功能设计索引，需要处理对应专项时再查阅。
 - `app/`：Android 应用主模块；构建脚本、源码、资源和 Manifest 都在该模块内。
 - `app/src/main/AndroidManifest.xml`：应用权限、Activity、组件声明和 Android 入口配置。
 - `app/src/main/java/com/dctimer/`：DCTimer 主业务代码包，优先从这里定位应用逻辑。
