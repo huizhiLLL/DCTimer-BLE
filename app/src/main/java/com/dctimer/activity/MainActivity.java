@@ -4889,7 +4889,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             scrambleIdx = 33;
         int idx = scrambleIdx >> 5;
         int idx2 = scrambleIdx & 0x1f;
-        if (idx == -1 && idx2 > 7) idx2--;
         btnScramble.setText(StringUtils.getScrambleName(idx, idx2));
         newScramble();
     }

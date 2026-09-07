@@ -162,9 +162,15 @@ public class StringUtils {
 
     public static String getScrambleName(int idx, int sub) {
         //String[] subitems;// = getResources().getStringArray(Utils.getScrambleArrayId(idx));
+        sub = getScrambleDisplaySubIndex(idx, sub);
         String[] subitems = scrambleSubitems[idx + 1];
         if (sub >= subitems.length) sub = 0;
         return scrambleItems[idx + 1] + " - " + subitems[sub];
+    }
+
+    public static int getScrambleDisplaySubIndex(int idx, int sub) {
+        if (idx == -1 && sub > 7) sub--;
+        return sub;
     }
 
     public static String meanOf(Context context, Result result, int n, int i, String[] detail) {

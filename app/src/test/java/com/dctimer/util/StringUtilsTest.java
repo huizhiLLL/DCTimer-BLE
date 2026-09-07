@@ -24,4 +24,12 @@ public class StringUtilsTest {
         assertEquals(12340, StringUtils.parseManualInputTime("12.34"));
         assertEquals(83450, StringUtils.parseManualInputTime("1:23.45"));
     }
+
+    @Test
+    public void getScrambleDisplaySubIndex_alignsWcaLargeCubes() {
+        assertEquals(7, StringUtils.getScrambleDisplaySubIndex(-1, 7));
+        assertEquals(12, StringUtils.getScrambleDisplaySubIndex(-1, 13));
+        assertEquals(13, StringUtils.getScrambleDisplaySubIndex(-1, 14));
+        assertEquals(13, StringUtils.getScrambleDisplaySubIndex(0, 13));
+    }
 }
