@@ -43,6 +43,7 @@ import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.text.style.ForegroundColorSpan;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.*;
 import com.google.android.material.navigation.NavigationView;
 import android.widget.*;
@@ -365,9 +366,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 }
             }
         });
-        int tvHeight = (int) (dm.heightPixels - 76 * dpi) / 2;
-        tvScramble.setHeight(tvHeight);
-        //tvScramble.setMovementMethod(ScrollingMovementMethod.getInstance());
+        updateScrambleHeight();
         tvStat = findViewById(R.id.tv_stat);
         tvMulPhase = findViewById(R.id.tv_multi_phase);
         //成绩
@@ -625,8 +624,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             }
         }
         getWindowManager().getDefaultDisplay().getMetrics(dm);
-        int tvHeight = (int) (dm.heightPixels - 76 * dpi) / 2;
-        tvScramble.setHeight(tvHeight);
+        updateScrambleHeight();
         showScramble();
         if (!useBgcolor) try {
             setBackground();
@@ -4416,7 +4414,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     private void setViews() {
         //打乱显示
         //tvScramble.setTextSize(scrambleSize);
-        TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(tvScramble, 10, scrambleSize, 2, TextViewCompat.AUTO_SIZE_TEXT_TYPE_UNIFORM);
+        TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(tvScramble, 8, scrambleSize, 1, TypedValue.COMPLEX_UNIT_SP);
         tvScramble.setTextColor(APP.getTextColor());
         if (monoFont) setScrambleFont();
 
@@ -4639,9 +4637,14 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         else tvScramble.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
     }
 
+    private void updateScrambleHeight() {
+        int tvHeight = Math.max(0, (int) (dm.heightPixels - 76 * dpi) / 2);
+        tvScramble.setMaxHeight(tvHeight);
+    }
+
     public void setScrambleSize() {
         //tvScramble.setTextSize(scrambleSize);
-        TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(tvScramble, 10, scrambleSize, 2, TextViewCompat.AUTO_SIZE_TEXT_TYPE_UNIFORM);
+        TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(tvScramble, 8, scrambleSize, 1, TypedValue.COMPLEX_UNIT_SP);
     }
 
     public void setImageSize() {    //设置打乱图大小
