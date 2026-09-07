@@ -88,17 +88,17 @@ public class TimesAdapter extends BaseAdapter {
         } else holder = (ViewHolder) view.getTag();
         if (position >= result.length()) {
             if (APP.multiPhase > 0) {
-                holder.textView.setTextColor(0xff666666);
+                holder.textView.setTextColor(dct.getResources().getColor(R.color.colorText));
                 holder.textView.setText(R.string.multi_phase_mean);
                 holder.button[0].setText("");
                 holder.button[0].setTag(-1);
-                holder.button[0].setBackgroundColor(-1);
+                holder.button[0].setBackgroundResource(R.drawable.item_background);
                 for (int i=1; i<7; i++) {
                     if (i < column - 1) {
                         holder.button[i].setVisibility(View.VISIBLE);
-                        holder.button[i].setBackgroundColor(-1);
+                        holder.button[i].setBackgroundResource(R.drawable.item_background);
                         holder.button[i].setText(result.getMpMean(i - 1));
-                        holder.button[i].setTextColor(0xff666666);
+                        holder.button[i].setTextColor(dct.getResources().getColor(R.color.colorText));
                     } else holder.button[i].setVisibility(View.GONE);
                 }
             }
@@ -132,7 +132,7 @@ public class TimesAdapter extends BaseAdapter {
                 if (i < column - 1) {
                     holder.button[i].setVisibility(View.VISIBLE);
                     if (APP.multiPhase > 0) {
-                        holder.button[i].setBackgroundColor(-1);
+                        holder.button[i].setBackgroundResource(R.drawable.item_background);
                         holder.button[i].setText(result.getMulTime(i-1, pos) == 0 ? "-" : StringUtils.timeToString(result.getMulTime(i - 1, pos)));
                         if (pos == result.getMpMinIdx(i - 1)) {
                             holder.button[i].setTextColor(APP.colors[2]);
