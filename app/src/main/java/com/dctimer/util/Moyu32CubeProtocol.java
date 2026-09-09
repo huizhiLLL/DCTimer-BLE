@@ -24,6 +24,7 @@ public class Moyu32CubeProtocol implements SmartCubeProtocol {
     public static final UUID WRITE_UUID = UUID.fromString("0783b03e-7735-b5a0-1760-a305d2795cb2");
     private static final UUID CCCD_UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
     private static final float GYRO_SCALE = 1073741824f;
+    private static final String SOLVED_STATE = "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB";
 
     private final MainActivity context;
     private final SmartCube smartCube;
@@ -37,6 +38,8 @@ public class Moyu32CubeProtocol implements SmartCubeProtocol {
     private boolean writePending;
     private boolean fallbackTried;
     private boolean initialStateShown;
+    private boolean resetStatePending;
+    private int pendingWriteOpcode = -1;
     private String deviceName;
     private String deviceMac;
 
@@ -58,6 +61,8 @@ public class Moyu32CubeProtocol implements SmartCubeProtocol {
         this.writePending = false;
         this.fallbackTried = false;
         this.initialStateShown = false;
+        this.resetStatePending = false;
+        this.pendingWriteOpcode = -1;
         requestQueue.clear();
         readCharacteristic = service.getCharacteristic(READ_UUID);
         writeCharacteristic = service.getCharacteristic(WRITE_UUID);
@@ -65,6 +70,12 @@ public class Moyu32CubeProtocol implements SmartCubeProtocol {
             Log.e(TAG, "MoYu32 特征不存在");
             return false;
         }
+        int writeType = resolveWriteType(writeCharacteristic.getProperties());
+        if (writeType == -1) {
+            Log.e(TAG, "MoYu32 写特征不支持写入");
+            return false;
+        }
+        writeCharacteristic.setWriteType(writeType);
         tryInitCipher(deviceMac);
         if (!gatt.setCharacteristicNotification(readCharacteristic, true)) {
             Log.e(TAG, "MoYu32 无法开启通知");
@@ -96,6 +107,8 @@ public class Moyu32CubeProtocol implements SmartCubeProtocol {
         prevMoveCnt = -1;
         fallbackTried = false;
         initialStateShown = false;
+        resetStatePending = false;
+        pendingWriteOpcode = -1;
     }
 
     public void onDescriptorWrite(BluetoothGattDescriptor descriptor, int status) {
@@ -111,6 +124,13 @@ public class Moyu32CubeProtocol implements SmartCubeProtocol {
         if (characteristic == null || !WRITE_UUID.equals(characteristic.getUuid())) {
             return;
         }
+        if (status != BluetoothGatt.GATT_SUCCESS) {
+            Log.e(TAG, "MoYu32 写入失败，status=" + status);
+            if (pendingWriteOpcode == 0xA2) {
+                resetStatePending = false;
+            }
+        }
+        pendingWriteOpcode = -1;
         writePending = false;
         sendNextRequest();
     }
@@ -124,6 +144,17 @@ public class Moyu32CubeProtocol implements SmartCubeProtocol {
         } catch (Exception e) {
             Log.e(TAG, "MoYu32 数据解析失败", e);
         }
+    }
+
+    @Override
+    public void onLocalCubeReset(String cubeState) {
+        if (gatt == null || writeCharacteristic == null) {
+            Log.w(TAG, "MoYu32 reset ignored: protocol is not connected");
+            return;
+        }
+        resetStatePending = true;
+        enqueueRequest(buildSolvedResetRequest());
+        Log.w(TAG, "MoYu32 已请求同步还原状态: " + cubeState);
     }
 
     private void onNotificationsEnabled() {
@@ -144,15 +175,21 @@ public class Moyu32CubeProtocol implements SmartCubeProtocol {
     private void enqueueSimpleRequest(int opcode) {
         byte[] req = new byte[20];
         req[0] = (byte) opcode;
-        requestQueue.offer(req);
-        sendNextRequest();
+        enqueueRequest(req);
     }
 
     private void enqueueGyroEnableRequest() {
         byte[] req = new byte[20];
         req[0] = (byte) 172;
         req[2] = 1;
-        requestQueue.offer(req);
+        enqueueRequest(req);
+    }
+
+    private void enqueueRequest(byte[] request) {
+        if (request == null) {
+            return;
+        }
+        requestQueue.offer(request);
         sendNextRequest();
     }
 
@@ -165,6 +202,15 @@ public class Moyu32CubeProtocol implements SmartCubeProtocol {
             byte[] encoded = cipher.encode(request);
             writeCharacteristic.setValue(encoded);
             writePending = gatt.writeCharacteristic(writeCharacteristic);
+            int opcode = request[0] & 0xff;
+            if (writePending) {
+                pendingWriteOpcode = opcode;
+            } else {
+                Log.e(TAG, "MoYu32 无法发起写入请求");
+                if (opcode == 0xA2) {
+                    resetStatePending = false;
+                }
+            }
         } catch (GeneralSecurityException e) {
             Log.e(TAG, "MoYu32 请求加密失败", e);
         }
@@ -208,21 +254,30 @@ public class Moyu32CubeProtocol implements SmartCubeProtocol {
     }
 
     private void handleInitialState(String data) {
-        if (prevMoveCnt != -1) {
+        boolean resetResponse = resetStatePending;
+        if (!shouldApplyStateFrame(prevMoveCnt, resetResponse)) {
             return;
         }
         moveCnt = parseBits(data, 152, 8);
         String facelet = parseFacelet(data.substring(8, 152));
+        if (resetResponse && !isExpectedResetState(facelet)) {
+            Log.w(TAG, "MoYu32 忽略重置请求前遗留的状态帧: " + facelet);
+            return;
+        }
         int check = smartCube.setCubeState(facelet);
         if (check != 0) {
-            Log.e(TAG, "MoYu32 初始状态校验失败");
-            if (!tryFallbackCipher()) {
-                smartCube.setCubeState("UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB");
+            Log.e(TAG, resetResponse ? "MoYu32 重置状态校验失败" : "MoYu32 初始状态校验失败");
+            if (!resetResponse && !tryFallbackCipher()) {
+                smartCube.setCubeState(SOLVED_STATE);
             }
             return;
         }
         prevMoveCnt = moveCnt;
-        Log.w(TAG, "MoYu32 初始状态: " + facelet);
+        resetStatePending = false;
+        Log.w(TAG, resetResponse ? "MoYu32 重置状态已同步: " + facelet : "MoYu32 初始状态: " + facelet);
+        if (resetResponse) {
+            context.refreshSmartCubeStateUi();
+        }
         if (!initialStateShown) {
             initialStateShown = true;
             context.runOnUiThread(new Runnable() {
@@ -243,6 +298,10 @@ public class Moyu32CubeProtocol implements SmartCubeProtocol {
 
     private void handleMove(String data) {
         moveCnt = parseBits(data, 88, 8);
+        if (resetStatePending) {
+            resetStatePending = false;
+            Log.w(TAG, "MoYu32 重置确认前收到转动，继续使用原计步基线");
+        }
         if (prevMoveCnt == -1 || moveCnt == prevMoveCnt) {
             return;
         }
@@ -298,6 +357,32 @@ public class Moyu32CubeProtocol implements SmartCubeProtocol {
         return Integer.parseInt(data.substring(start, start + len), 2);
     }
 
+    static boolean shouldApplyStateFrame(int previousMoveCount, boolean resetPending) {
+        return previousMoveCount == -1 || resetPending;
+    }
+
+    static boolean isExpectedResetState(String facelet) {
+        return SOLVED_STATE.equals(facelet);
+    }
+
+    static int resolveWriteType(int properties) {
+        if ((properties & BluetoothGattCharacteristic.PROPERTY_WRITE) != 0) {
+            return BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT;
+        }
+        if ((properties & BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) != 0) {
+            return BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE;
+        }
+        return -1;
+    }
+
+    static byte[] buildSolvedResetRequest() {
+        return new byte[]{
+                (byte) 0xA2, 0x00, 0x00, 0x00, 0x24, (byte) 0x92, 0x49, 0x49,
+                0x24, (byte) 0x92, 0x6D, (byte) 0xB6, (byte) 0xDB, (byte) 0x92,
+                0x49, 0x24, (byte) 0xB6, (byte) 0xDB, 0x6D, 0x00
+        };
+    }
+
     private String parseFacelet(String faceletBits) {
         StringBuilder state = new StringBuilder(54);
         int[] faces = {2, 5, 0, 3, 4, 1};
@@ -342,6 +427,8 @@ public class Moyu32CubeProtocol implements SmartCubeProtocol {
             prevMoveCnt = -1;
             requestQueue.clear();
             writePending = false;
+            resetStatePending = false;
+            pendingWriteOpcode = -1;
             enqueueSimpleRequest(163);
             enqueueSimpleRequest(164);
             Log.w(TAG, "MoYu32 使用备用 MAC: " + fallbackMac);
