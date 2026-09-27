@@ -1,7 +1,7 @@
 {
-  "versionCode": 232,
-  "versionName": "2.3.2",
+  "versionCode": 233,
+  "versionName": "2.3.3",
   "releaseUrl": "https://dctimer.huizhi.ink/",
-  "apkUrl": "https://dctimer.huizhi.ink/assets/DCTimer-BLE-v2.3.2.apk",
-  "notes": "- 奇艺/GAN 陀螺仪适配\n- 支持 GAN 魔方机器人二代（智能魔方协同、自定义打乱/还原）\n- 首页蓝牙入口加入蓝牙计时器，混合扫描\n- 枫叶打乱状态图绘制\n- 修复判罚选择后成绩未同步更新的问题"
+  "apkUrl": "https://dctimer.huizhi.ink/assets/DCTimer-BLE-v2.3.3.apk",
+  "notes": "- 重置魔方状态加入回写操作\n- 优化 GAN Gen4 数据解析\n- 修复部分情况下 APP 崩溃问题（即虚拟魔方窗口打开时的应用切换）\n- 修复部分情况下打乱出现遮挡问题\n- 修复 WCA 分组下部分项目名称索引问题\n- 修复分段成绩的主题颜色硬编码问题"
 }
