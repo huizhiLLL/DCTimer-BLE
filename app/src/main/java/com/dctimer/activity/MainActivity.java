@@ -444,14 +444,14 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         int smartSectionStart = cells.size();
         String[] smartSettingItems = getResources().getStringArray(R.array.item_smart);
         Utils.addSection(headers, cells, getString(R.string.title_smart), smartSettingItems,
-                new int[] {0, 0, 0, 0, 2, 1, 0},
-                new Object[] {getResources().getStringArray(R.array.opt_smart_solve_method)[smartCubeSolveMethod], getSmartCubeOrientationLabel(smartCubeSolveOrientation),
+                new int[] {0, 0, 0, 2, 1, 0},
+                new Object[] {getResources().getStringArray(R.array.opt_smart_solve_method)[smartCubeSolveMethod],
                         getSmartCubeOrientationLabel(smartCubeTrainingOrientation),
                         getResources().getStringArray(R.array.opt_smart_scramble_progress)[smartCubeScrambleProgressStyle],
                         String.valueOf(smartCubeSize), smartCubeGyroFollow, getResources().getStringArray(R.array.opt_smart_layout)[smartCubeLayoutMode]},
-                new int[] {0, 0, 0, 0, 16<<16|(smartCubeSize/10-16), 0, 0},
-                new int[] {ST_SMART_SOLVE_METHOD, ST_SMART_ORIENTATION, ST_SMART_TRAINING_ORIENTATION, ST_SMART_SCRAMBLE_PROGRESS, ST_SMART_CUBE_SIZE, ST_SMART_GYRO_FOLLOW, ST_SMART_LAYOUT});
-        cells.get(smartSectionStart + 6).put("desc", getString(R.string.smart_cube_gyro_follow_desc));
+                new int[] {0, 0, 0, 16<<16|(smartCubeSize/10-16), 0, 0},
+                new int[] {ST_SMART_SOLVE_METHOD, ST_SMART_TRAINING_ORIENTATION, ST_SMART_SCRAMBLE_PROGRESS, ST_SMART_CUBE_SIZE, ST_SMART_GYRO_FOLLOW, ST_SMART_LAYOUT});
+        cells.get(smartSectionStart + 5).put("desc", getString(R.string.smart_cube_gyro_follow_desc));
         Utils.addSection(headers, cells, getString(R.string.title_scramble), getResources().getStringArray(R.array.item_scramble),
                 new int[] {2, 1, 1, 2, 0},
                 new Object[] {String.valueOf(scrambleSize), monoFont, showImage, "", ""},
@@ -2322,6 +2322,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     }
 
     public void onSmartCubeGyroChanged(float x, float y, float z, float w) {
+        SmartCube cube = bluetoothTools == null ? null : bluetoothTools.getCube();
+        if (cube != null) cube.recordGyro(x, y, z, w);
         synchronized (smartCubeGyroLock) {
             latestSmartCubeGyro[0] = x;
             latestSmartCubeGyro[1] = y;
@@ -2382,6 +2384,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     }
 
     private void clearSmartCubeGyroState() {
+        SmartCube cube = bluetoothTools == null ? null : bluetoothTools.getCube();
+        if (cube != null) cube.clearGyroSession();
         synchronized (smartCubeGyroLock) {
             Arrays.fill(latestSmartCubeGyro, 0f);
             Arrays.fill(smartCubeGyroCalibration, 0f);
@@ -2702,6 +2706,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     }
 
     public void markScrambled() {
+        SmartCube cube = getActiveSmartCube();
+        if (cube != null) cube.markScrambled();
         smartCubeScrambleProgress = smartCubeScrambleMoves.size();
         smartCubeScramblePendingMove = null;
         clearSmartCubeCorrectionSuggestion();
@@ -3381,18 +3387,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 dropToStop = !dropToStop;
                 stAdapter.setCheck(position, dropToStop);
                 setPref("drop", dropToStop);
-                break;
-            case ST_SMART_ORIENTATION:
-                new AlertDialog.Builder(context).setSingleChoiceItems(getSmartCubeOrientationLabels(), smartCubeSolveOrientation, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
-                        if (smartCubeSolveOrientation == i) return;
-                        smartCubeSolveOrientation = i;
-                        stAdapter.setText(position, getSmartCubeOrientationLabel(i));
-                        setPref("scori", i);
-                        dialogInterface.dismiss();
-                    }
-                }).setNegativeButton(R.string.btn_cancel, null).show();
                 break;
             case ST_SMART_TRAINING_ORIENTATION:
                 new AlertDialog.Builder(context).setSingleChoiceItems(getSmartCubeOrientationLabels(), smartCubeTrainingOrientation, new DialogInterface.OnClickListener() {

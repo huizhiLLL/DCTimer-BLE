@@ -25,20 +25,21 @@ public class SmartCubeSolveReconstructionTest {
 
         SmartCubeSolveReconstruction reconstruction = SmartCubeSolveReconstruction.fromRawMoves(SOLVED, raw);
 
-        assertEquals("R2", reconstruction.getMoveSequence());
+        // Automatic cross normalization puts the untouched opposite cross down.
+        assertEquals("U2", reconstruction.getMoveSequence());
         assertEquals(1, reconstruction.getMoveCount());
     }
 
     @Test
-    public void recognizesOppositeLayerComboAsSliceWithinWindow() {
+    public void keepsUnclosedOppositePairEvenWithinOldWindow() {
         List<SmartCubeSolveReconstruction.MoveEvent> raw = new ArrayList<>();
         raw.add(new SmartCubeSolveReconstruction.MoveEvent(0, 0, 0));
         raw.add(new SmartCubeSolveReconstruction.MoveEvent(11, 90, 90));
 
         SmartCubeSolveReconstruction reconstruction = SmartCubeSolveReconstruction.fromRawMoves(SOLVED, raw);
 
-        assertEquals("E", reconstruction.getMoveSequence());
-        assertEquals(1, reconstruction.getMoveCount());
+        assertEquals("U D'", reconstruction.getMoveSequence());
+        assertEquals(2, reconstruction.getMoveCount());
     }
 
     @Test
@@ -129,24 +130,6 @@ public class SmartCubeSolveReconstructionTest {
     @Test
     public void rouxProgressRecognizesSolvedState() throws Exception {
         assertEquals(0, invokeRouxProgress(SOLVED));
-    }
-
-    @Test
-    public void customOrientationChangesDisplayedMovesWithoutChangingPhaseDetection() {
-        int originalOrientation = APP.smartCubeSolveOrientation;
-        try {
-            APP.smartCubeSolveOrientation = findOrientation(3, 2);
-            List<SmartCubeSolveReconstruction.MoveEvent> raw = new ArrayList<>();
-            raw.add(new SmartCubeSolveReconstruction.MoveEvent(3, 0, 0));
-            raw.add(new SmartCubeSolveReconstruction.MoveEvent(0, 120, 120));
-
-            SmartCubeSolveReconstruction reconstruction = SmartCubeSolveReconstruction.fromRawMoves(SOLVED, raw);
-
-            assertEquals("L D", reconstruction.getMoveSequence());
-            assertTrue(reconstruction.getPrettySolve().contains("L D // PLL"));
-        } finally {
-            APP.smartCubeSolveOrientation = originalOrientation;
-        }
     }
 
     @Test

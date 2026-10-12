@@ -389,7 +389,6 @@
 
     <array name="item_smart">
         <item>使用解法</item>
-        <item>解法朝向基准</item>
         <item>训练朝向</item>
         <item>打乱推进样式</item>
         <item>虚拟魔方大小</item>

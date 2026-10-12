@@ -755,7 +755,7 @@ public class GanRobotActivity extends AppCompatActivity {
     }
 
     private int getActiveScrambleOrientation() {
-        return isTrainingScrambleMode() ? APP.smartCubeTrainingOrientation : APP.smartCubeSolveOrientation;
+        return isTrainingScrambleMode() ? APP.smartCubeTrainingOrientation : 0;
     }
 
     private String getActiveScrambleOrientationLabel() {

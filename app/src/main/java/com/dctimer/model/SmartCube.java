@@ -31,6 +31,22 @@ public class SmartCube implements Serializable {
     private CompletionChecker completionChecker;
     private String targetState;
     private boolean scrambledNotified;
+    private transient SmartCubeGyroRecorder gyroRecorder = new SmartCubeGyroRecorder();
+    private transient List<Long> moveArrivals = new ArrayList<>();
+
+    private synchronized SmartCubeGyroRecorder gyroRecorder() {
+        if (gyroRecorder == null) gyroRecorder = new SmartCubeGyroRecorder();
+        return gyroRecorder;
+    }
+
+    public void recordGyro(float x, float y, float z, float w) {
+        gyroRecorder().accept(System.nanoTime() / 1000000L, x, y, z, w);
+    }
+
+    public synchronized void clearGyroSession() {
+        gyroRecorder = new SmartCubeGyroRecorder();
+    }
+
 
     public SmartCube() {
         rawData = new ArrayList<>();
@@ -111,6 +127,8 @@ public class SmartCube implements Serializable {
     }
 
     public void applyMove(int move, int time, String scramble) {
+        if (moveArrivals == null) moveArrivals = new ArrayList<>();
+        moveArrivals.add(System.nanoTime() / 1000000L);
         rawData.add(move << 16 | time);
         cc = cc.move(move);
         cubeState = Util.toFaceCube(cc);
@@ -142,12 +160,14 @@ public class SmartCube implements Serializable {
     }
 
     public void markScrambled() {
+        gyroRecorder().begin(System.nanoTime() / 1000000L);
         preIdx = rawData.size();
         solveStartState = cubeState;
         scrambledNotified = true;
     }
 
     public void markSolveStarted(String startState) {
+        gyroRecorder().ensureStarted(System.nanoTime() / 1000000L);
         if (rawData.isEmpty()) {
             preIdx = 0;
         } else {
@@ -157,6 +177,8 @@ public class SmartCube implements Serializable {
     }
 
     public void markSolved() {
+        gyroRecorder().clearAttempt();
+        moveArrivals = new ArrayList<>();
         cubeState = "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB";
         cc = new CubieCube();
         rawData = new ArrayList<>();
@@ -167,6 +189,8 @@ public class SmartCube implements Serializable {
     }
 
     public void resetSolveTracking() {
+        gyroRecorder().clearAttempt();
+        moveArrivals = new ArrayList<>();
         rawData = new ArrayList<>();
         preIdx = 0;
         solveStartState = cubeState;
@@ -218,7 +242,10 @@ public class SmartCube implements Serializable {
                 }
             } else moveList.add(move);
         }
-        reconstruction = SmartCubeSolveReconstruction.fromRawMoves(solveStartState, solveMoves);
+        List<Long> arrivals = moveArrivals != null && moveArrivals.size() == rawData.size()
+                ? new ArrayList<>(moveArrivals.subList(preIdx, moveArrivals.size())) : new ArrayList<Long>();
+        reconstruction = SmartCubeSolveReconstruction.fromRawMoves(solveStartState, solveMoves,
+                gyroRecorder().finish(arrivals, solveMoves));
         reconstructedMoves = reconstruction.getMoveCount();
     }
 

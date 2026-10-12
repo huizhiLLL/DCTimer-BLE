@@ -389,7 +389,6 @@
 
     <array name="item_smart">
         <item>使用解法</item>
-        <item>解法朝向基準</item>
         <item>訓練朝向</item>
         <item>轉亂推進樣式</item>
         <item>虛擬方塊大小</item>

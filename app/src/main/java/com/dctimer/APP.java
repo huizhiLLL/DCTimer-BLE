@@ -103,7 +103,6 @@ public class APP extends Application {
     public static int dataFormat;
     public static int uiMode = -1;
     public static int bleDeviceType;
-    public static int smartCubeSolveOrientation;
     public static int smartCubeTrainingOrientation = SmartCubeTraining.DEFAULT_TRAINING_ORIENTATION;
     public static int smartCubeSolveMethod;
     public static int smartCubeScrambleProgressStyle;
@@ -245,8 +244,6 @@ public class APP extends Application {
         appLanguage = sp.getInt("applang", 0);
         if (appLanguage < 0 || appLanguage > 3) appLanguage = 0;
         applyAppLanguage(appLanguage);
-        smartCubeSolveOrientation = sp.getInt("scori", 0);
-        if (smartCubeSolveOrientation < 0 || smartCubeSolveOrientation >= 24) smartCubeSolveOrientation = 0;
         smartCubeTrainingOrientation = sp.getInt("sctori", SmartCubeTraining.DEFAULT_TRAINING_ORIENTATION);
         if (smartCubeTrainingOrientation < 0 || smartCubeTrainingOrientation >= 24) smartCubeTrainingOrientation = SmartCubeTraining.DEFAULT_TRAINING_ORIENTATION;
         smartCubeSolveMethod = sp.getInt("scmethod", 0);
@@ -282,7 +279,7 @@ public class APP extends Application {
         for (int i = 0; i < 3; i++) swipeType[i] = i + 1;
         swipeType[3] = 5;
         samplingRate = 44100; dataFormat = AudioFormat.ENCODING_PCM_8BIT;
-        smartCubeSolveOrientation = 0; smartCubeTrainingOrientation = SmartCubeTraining.DEFAULT_TRAINING_ORIENTATION; smartCubeSolveMethod = 0; smartCubeScrambleProgressStyle = 0;
+        smartCubeTrainingOrientation = SmartCubeTraining.DEFAULT_TRAINING_ORIENTATION; smartCubeSolveMethod = 0; smartCubeScrambleProgressStyle = 0;
         smartCubeSize = 220; smartCubeGyroFollow = true; smartCubeLayoutMode = 0;
         appLanguage = 0; applyAppLanguage(appLanguage);
         navigationPosition = 0;
