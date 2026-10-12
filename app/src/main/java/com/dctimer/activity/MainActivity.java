@@ -144,6 +144,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     private int activeSettingSection = -1;
     private ColorSchemeView colorSchemeView;
     public Bitmap bitmap;
+    private BackgroundAdjustDialog backgroundAdjustDialog;
 
     private SharedPreferences sp; //保存配置
     //public static SharedPreferences.Editor edit;
@@ -309,6 +310,15 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         navigationView = findViewById(R.id.nav_view);  //导航栏
         navigationView.setNavigationItemSelectedListener(this);
         frame = findViewById(R.id.main_layout);
+        frame.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+            int width = right - left, height = bottom - top;
+            if (width > 0 && height > 0 && (width != oldRight - oldLeft || height != oldBottom - oldTop)) {
+                if (!useBgcolor) setBackground();
+                if (backgroundAdjustDialog != null && backgroundAdjustDialog.isShowing()) {
+                    backgroundAdjustDialog.updateViewport(width, height);
+                }
+            }
+        });
         tabHost = findViewById(R.id.tabhost);
         tabHost.setup();
         int[] ids = {R.id.tab_timer, R.id.tab_result, R.id.tab_settings};
@@ -605,6 +615,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
     @Override
     protected void onDestroy() {
+        if (backgroundAdjustDialog != null) backgroundAdjustDialog.dismiss();
         Log.w("dct", "ondestroy");
         if (inspectionAlertPlayer != null) {
             inspectionAlertPlayer.release();
@@ -1230,12 +1241,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                         try {
                             getContentResolver().takePersistableUriPermission(uri, takeFlags & Intent.FLAG_GRANT_READ_URI_PERMISSION);
                         } catch (SecurityException ignored) { }
-                        picUri = uri.toString();
-                        picPath = "";
-                        setPref("picuri", picUri);
-                        setPref("picpath", "");
-                        if (!useBgcolor)
-                            setBackground();
+                        adjustBackground(uri.toString(), "", new BackgroundCrop(0.5f, 0.5f, 1));
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -3934,7 +3940,14 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 }).show();
                 break;
             case 47:    //背景图片
-                selectPic();
+                if (TextUtils.isEmpty(picUri) && TextUtils.isEmpty(picPath)) selectPic();
+                else new AlertDialog.Builder(context).setTitle(R.string.background_adjust)
+                        .setItems(new String[] {getString(R.string.background_edit_current), getString(R.string.background_choose)},
+                                (choiceDialog, choice) -> {
+                                    if (choice == 0) adjustBackground(picUri, picPath,
+                                            new BackgroundCrop(backgroundX, backgroundY, backgroundZoom));
+                                    else selectPic();
+                                }).show();
                 break;
             case 48:    //显示背景图
                 if (useBgcolor) {
@@ -4673,9 +4686,15 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
     public void setBackground() {
         try {
-            Bitmap bm = Utils.getBitmap(context, dm, picUri, picPath);
-            bitmap = Utils.getBackgroundBitmap(dm, bm);
-            frame.setBackgroundDrawable(Utils.getBackgroundDrawable(context, dm, bitmap, opacity));
+            Bitmap bm = Utils.loadBackgroundSource(context, picUri, picPath);
+            try {
+                bitmap = Utils.renderBackground(bm, frame.getWidth() > 0 ? frame.getWidth() : dm.widthPixels,
+                        frame.getHeight() > 0 ? frame.getHeight() : dm.heightPixels,
+                        new BackgroundCrop(backgroundX, backgroundY, backgroundZoom), opacity);
+                frame.setBackgroundDrawable(new android.graphics.drawable.BitmapDrawable(getResources(), bitmap));
+            } finally {
+                bm.recycle();
+            }
         } catch (Exception e) {
             e.printStackTrace();
             if (!TextUtils.isEmpty(picUri)) {
@@ -5963,6 +5982,35 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             result = result + extension;
         }
         return result;
+    }
+
+    private void adjustBackground(String uri, String path, BackgroundCrop crop) {
+        backgroundAdjustDialog = new BackgroundAdjustDialog(this, uri, path, crop,
+                Math.max(1, frame.getWidth()), Math.max(1, frame.getHeight()),
+                btnScramble.getText().toString(), tvScramble.getText().toString(), tvTimer.getTypeface(), (adjusted, source) -> {
+                    Bitmap rendered;
+                    try {
+                        rendered = Utils.renderBackground(source, Math.max(1, frame.getWidth()),
+                                Math.max(1, frame.getHeight()), adjusted, opacity);
+                    } catch (Exception | OutOfMemoryError error) {
+                        Toast.makeText(this, R.string.background_load_failed, Toast.LENGTH_SHORT).show();
+                        return false;
+                    }
+                    picUri = uri;
+                    picPath = path;
+                    backgroundX = adjusted.centerX;
+                    backgroundY = adjusted.centerY;
+                    backgroundZoom = adjusted.zoom;
+                    useBgcolor = false;
+                    sp.edit().putString("picuri", uri).putString("picpath", path)
+                            .putFloat("bg_x", backgroundX).putFloat("bg_y", backgroundY)
+                            .putFloat("bg_zoom", backgroundZoom).putBoolean("bgcolor", false).apply();
+                    stAdapter.setCheck(ST_SHOW_BACKGROUND_IMAGE, true);
+                    bitmap = rendered;
+                    frame.setBackgroundDrawable(new android.graphics.drawable.BitmapDrawable(getResources(), rendered));
+                    return true;
+                });
+        backgroundAdjustDialog.show();
     }
 
     private void selectPic() {

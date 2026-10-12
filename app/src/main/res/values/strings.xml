@@ -273,4 +273,12 @@
     <string name="about_msg">"Version: %1$s\nBased on DCTimer-Android\nOriginal author: MeigenChou\nSecondary development author: huizhiLLL\nCopyright © 2012—2022 MeigenChou\nOpen source under GPL v3\nRepository: https://github.com/huizhiLLL/DCTimer-BLE"</string>
     <string name="feedback_title">Feedback of DCTimer</string>
     <string name="language">en</string>
+    <string name="background_adjust">Adjust background</string>
+    <string name="background_adjust_hint">Drag to move · Pinch to zoom. Timer layout shown for reference.</string>
+    <string name="background_reset">Reset</string>
+    <string name="background_apply">Apply</string>
+    <string name="background_loading">Loading image…</string>
+    <string name="background_load_failed">Unable to open this image. Choose another image.</string>
+    <string name="background_choose">Choose image</string>
+    <string name="background_edit_current">Adjust current image</string>
 </resources>

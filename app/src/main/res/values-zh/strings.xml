@@ -271,4 +271,12 @@
     <string name="gan_robot_solve_need_cube_state">未取得智能魔方状态</string>
     <string name="gan_robot_solve_invalid_cube_state">智能魔方状态格式错误</string>
     <string name="gan_robot_solve_requires_smart_cube">还原功能需要先连接智能魔方</string>
+    <string name="background_adjust">调整背景</string>
+    <string name="background_adjust_hint">单指拖动，双指缩放；计时布局仅供取景参考。</string>
+    <string name="background_reset">重置</string>
+    <string name="background_apply">应用</string>
+    <string name="background_loading">正在加载图片…</string>
+    <string name="background_load_failed">无法打开此图片，请选择其他图片。</string>
+    <string name="background_choose">选择图片</string>
+    <string name="background_edit_current">调整当前图片</string>
 </resources>

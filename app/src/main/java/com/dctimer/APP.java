@@ -82,6 +82,7 @@ public class APP extends Application {
     public static boolean selectSession;
     public static String picPath;
     public static String picUri;
+    public static float backgroundX, backgroundY, backgroundZoom;
     public static int freezeTime;
     public static int[] sesionType = new int[15];
     public static String[] sessionName = new String[15];
@@ -223,6 +224,9 @@ public class APP extends Application {
         colors[6] = sp.getInt("cl6", 0xff000000);   //文字颜色（深色）
         picPath = sp.getString("picpath", "");	//背景图片路径（旧路径兼容）
         picUri = sp.getString("picuri", "");   //背景图片 Uri
+        backgroundX = sp.getFloat("bg_x", 0.5f);
+        backgroundY = sp.getFloat("bg_y", 0.5f);
+        backgroundZoom = sp.getFloat("bg_zoom", 1f);
         opacity = sp.getInt("opac", 35);	//背景不透明度
         if (opacity < 20) opacity = 20;
         useBgcolor = sp.getBoolean("bgcolor", true);	//使用背景颜色
@@ -268,6 +272,7 @@ public class APP extends Application {
         megaColorScheme = 1; timerFont = 3;
         timerSize = 60; useBgcolor = true; opacity = 35;
         picPath = ""; picUri = "";
+        backgroundX = backgroundY = 0.5f; backgroundZoom = 1f;
         fullScreen = false; screenOn = false; vibrateType = 0;
         vibrateTime = 2; screenOri = 0;
         resultOrderType = 0; sortType = 0;

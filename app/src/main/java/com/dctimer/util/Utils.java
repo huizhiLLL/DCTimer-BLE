@@ -214,6 +214,62 @@ public class Utils {
         }
     }
 
+    public static Bitmap loadBackgroundSource(Context context, String uriText, String path) throws IOException {
+        Uri uri = TextUtils.isEmpty(uriText) ? Uri.fromFile(new File(path)) : Uri.parse(uriText);
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inJustDecodeBounds = true;
+        try (InputStream input = context.getContentResolver().openInputStream(uri)) {
+            if (input == null) throw new IOException("Image unavailable");
+            BitmapFactory.decodeStream(input, null, options);
+        }
+        if (options.outWidth <= 0 || options.outHeight <= 0) throw new IOException("Invalid image");
+        options.inSampleSize = 1;
+        while (Math.max(options.outWidth, options.outHeight) / options.inSampleSize > 4096
+                || (long) options.outWidth * options.outHeight / options.inSampleSize / options.inSampleSize > 8000000) {
+            options.inSampleSize *= 2;
+        }
+        options.inJustDecodeBounds = false;
+        Bitmap source;
+        try (InputStream input = context.getContentResolver().openInputStream(uri)) {
+            source = BitmapFactory.decodeStream(input, null, options);
+        }
+        if (source == null) throw new IOException("Invalid image");
+        if (android.os.Build.VERSION.SDK_INT >= 24) {
+            try (InputStream input = context.getContentResolver().openInputStream(uri)) {
+                if (input == null) return source;
+                android.media.ExifInterface exif = new android.media.ExifInterface(input);
+                int orientation = exif.getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, 1);
+                Matrix matrix = new Matrix();
+                switch (orientation) {
+                    case 2: matrix.setScale(-1, 1); break;
+                    case 3: matrix.setRotate(180); break;
+                    case 4: matrix.setScale(1, -1); break;
+                    case 5: matrix.setRotate(90); matrix.postScale(-1, 1); break;
+                    case 6: matrix.setRotate(90); break;
+                    case 7: matrix.setRotate(270); matrix.postScale(-1, 1); break;
+                    case 8: matrix.setRotate(270); break;
+                }
+                if (!matrix.isIdentity()) {
+                    Bitmap rotated = Bitmap.createBitmap(source, 0, 0, source.getWidth(), source.getHeight(), matrix, true);
+                    if (rotated != source) source.recycle();
+                    source = rotated;
+                }
+            } catch (IOException ignored) { }
+        }
+        return source;
+    }
+
+    public static Bitmap renderBackground(Bitmap source, int width, int height, BackgroundCrop crop, int opacity) {
+        float[] b = crop.bounds(source.getWidth(), source.getHeight(), width, height);
+        Bitmap output = Bitmap.createBitmap(width, height, Config.ARGB_8888);
+        Canvas canvas = new Canvas(output);
+        Matrix matrix = new Matrix();
+        matrix.setRectToRect(new RectF(b[0], b[1], b[2], b[3]), new RectF(0, 0, width, height), Matrix.ScaleToFit.FILL);
+        canvas.drawBitmap(source, matrix, new Paint(Paint.FILTER_BITMAP_FLAG));
+        canvas.drawColor(Color.argb(255 * (100 - opacity) / 100, 255, 255, 255));
+        return output;
+    }
+
     public static Bitmap getBackgroundBitmap(DisplayMetrics dm, Bitmap bitmap) {
         int width = dm.widthPixels;
         int height = dm.heightPixels;
