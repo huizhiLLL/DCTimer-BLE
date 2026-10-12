@@ -56,8 +56,69 @@ public class SmartCubeReconstructionEngineTest {
         assertFalse(result.tokens.get(0).rotation());
     }
 
+    @Test public void inspectionCombinesQuarterTurnsIntoShortestHalfTurn() {
+        SmartCubeReconstructionEngine.Result result=run(moves(0,0),
+                pose(-500,0,0),pose(-300,0,-90),pose(-100,0,-180));
+        assertEquals("x2",result.inspection);
+        assertEquals("D",text(result));
+    }
+
+    @Test public void inspectionRoundTripDisappearsWithoutRemovingSolveRotations() {
+        SmartCubeReconstructionEngine.Result result=run(moves(3,0,0,600),
+                pose(-500,0,0),pose(-300,0,-90),pose(-100,0,0),pose(300,0,-90));
+        assertEquals("",result.inspection);
+        assertEquals("R x B",text(result));
+    }
+
+    @Test public void inspectionIncludesInitialGripWhenChoosingShortestPath() {
+        SmartCubeReconstructionEngine.Result result=run(moves(0,0),
+                pose(-500,0,-90),pose(-300,0,-180),pose(-100,0,-270));
+        assertEquals("x'",result.inspection);
+        assertEquals("F",text(result));
+    }
+
+    @Test public void tiltedFirstObservationSampleDoesNotDiscardLaterWhiteBottomPose() {
+        SmartCubeReconstructionEngine.Result result=run(moves(0,0,6,600),
+                new SmartCubeSolveReconstruction.GyroSample(-700,new double[]{Math.sqrt(0.125),Math.sqrt(0.125),0,Math.sqrt(0.75)}),
+                pose(-400,0,-180),pose(-100,0,-180),pose(300,0,-270));
+        assertEquals("x2",result.inspection);
+        assertEquals("D x D",text(result));
+    }
+
+    @Test public void lateRecognizablePoseDoesNotInventAnInspectionRotation() {
+        SmartCubeReconstructionEngine.Result result=run(moves(3,0,0,600),
+                new SmartCubeSolveReconstruction.GyroSample(-700,new double[]{Math.sqrt(0.125),Math.sqrt(0.125),0,Math.sqrt(0.75)}),
+                pose(300,0,-180));
+        assertEquals("",result.inspection);
+        assertEquals("R x2 D",text(result));
+    }
+
     @Test public void sliceConsumesCoreRotationAndRenamesFollowingMoves() {
         assertEquals("M F",text(run(moves(3,200,14,230,0,600),pose(-500,0,0),pose(210,0,90))));
+    }
+
+    @Test public void stationaryCoreNeverTurnsClosedOppositeLayersIntoSlicesInAnyPhase() {
+        for(boolean crossFirst:new boolean[]{true,false}) for(int phase=0;phase<7;phase++) {
+            for(int face=0;face<3;face++) {
+                // Opposite outer layers followed by their inverses: implied rotations close,
+                // but a stationary (or slightly shaking) core is evidence against slice turns.
+                List<SmartCubeSolveReconstruction.MoveEvent> raw=moves(
+                        face*3,200,(face+3)*3+2,230,face*3+2,600,(face+3)*3,630);
+                SmartCubeReconstructionEngine.Result result=SmartCubeReconstructionEngine.reconstruct(
+                        SOLVED,raw,new int[]{phase,phase,phase,phase},IDENTITY,
+                        Arrays.asList(pose(-500,0,0),pose(220,0,10),pose(620,0,0)),crossFirst);
+                assertEquals(4,result.tokens.size());
+                for(int i=0;i<4;i++) {
+                    assertEquals(raw.get(i).move/3,result.tokens.get(i).axis);
+                    assertEquals(raw.get(i).move%3+1,result.tokens.get(i).quarters);
+                }
+            }
+        }
+    }
+
+    @Test public void closedOppositeLayersStillAllowInferenceWithoutGyro() {
+        SmartCubeReconstructionEngine.Result result=run(moves(0,200,11,230,2,600,9,630));
+        assertEquals("E E'",text(result));
     }
 
     @Test public void wideConsumesOppositeFaceAndCoreExactlyOnce() {
@@ -69,13 +130,116 @@ public class SmartCubeReconstructionEngineTest {
                 pose(-500,0,0),pose(240,0,180))));
     }
 
+    @Test public void sliceHalfConsumesTwoCoreQuartersBeforeWideRecognition() {
+        assertEquals("M2 D",text(run(moves(4,200,13,240,0,600),
+                pose(-500,0,0),pose(190,0,90),pose(250,0,180))));
+    }
+
+    @Test public void moyuStyleInterleavedEncodersReconstructM2UM2() {
+        SmartCubeReconstructionEngine.Result result=run(
+                moves(5,180,12,200,12,220,5,240,9,500,3,680,14,700,14,720,3,760),
+                pose(-500,0,0),pose(150,0,-90),pose(250,0,-180),pose(650,0,-90),pose(750,0,0));
+        assertEquals("M2 U M2",text(result));
+        cs.min2phase.CubieCube cube=new cs.min2phase.CubieCube();
+        for(int move:new int[]{5,12,12,5,9,3,14,14,3}) cube=cube.move(move);
+        String actual=SOLVED;
+        for(SmartCubeReconstructionEngine.Token token:result.tokens) actual=applyNotation(actual,token);
+        assertEquals(cs.min2phase.Util.toFaceCube(cube),actual);
+    }
+
+    @Test public void interleavedHalfSliceRequiresEvidenceAndOnePhase() {
+        List<SmartCubeSolveReconstruction.MoveEvent> raw=moves(5,180,12,200,12,220,5,240);
+        SmartCubeReconstructionEngine.Result noGyro=run(raw);
+        for(SmartCubeReconstructionEngine.Token token:noGyro.tokens) assertTrue(token.axis!=7);
+        SmartCubeReconstructionEngine.Result splitPhase=SmartCubeReconstructionEngine.reconstruct(SOLVED,raw,
+                new int[]{1,1,2,2},IDENTITY,Arrays.asList(pose(-500,0,0),pose(150,0,-90),pose(230,0,-180)));
+        int[] phases={1,1,2,2};
+        for(SmartCubeReconstructionEngine.Token token:splitPhase.tokens) {
+            assertFalse(token.axis==7 && token.quarters==2);
+            assertEquals(phases[token.from],phases[token.to]);
+        }
+    }
+
+    @Test public void interleavedHalfSlicesWorkForEveryFaceAndCoreDirection() {
+        for(int face=0;face<6;face++) for(int sign:new int[]{-1,1}) {
+            int opposite=(face+3)%6,axis=new int[]{1,0,2}[face%3];
+            List<SmartCubeSolveReconstruction.MoveEvent> raw=moves(face*3+2,180,opposite*3,200,opposite*3,220,face*3+2,240);
+            SmartCubeReconstructionEngine.Result result=run(raw,pose(-500,0,0),pose(150,axis,sign*90),pose(230,axis,sign*180));
+            assertEquals(1,result.tokens.size());
+            assertEquals(6+face%3,result.tokens.get(0).axis);
+            assertEquals(2,result.tokens.get(0).quarters);
+            cs.min2phase.CubieCube cube=new cs.min2phase.CubieCube();
+            for(SmartCubeSolveReconstruction.MoveEvent move:raw) cube=cube.move(move.move);
+            assertEquals(com.dctimer.util.Utils.orientFacelets(cs.min2phase.Util.toFaceCube(cube),turn(axis,2)),
+                    applyNotation(SOLVED,result.tokens.get(0)));
+        }
+    }
+
+    @Test public void interleavedHalfSliceDoesNotCrossIndependentRotation() {
+        List<SmartCubeSolveReconstruction.MoveEvent> raw=moves(5,180,12,200,12,220,5,240);
+        SmartCubeReconstructionEngine.Result result=run(raw,pose(-500,0,0),pose(190,0,-180),
+                new SmartCubeSolveReconstruction.GyroSample(210,new double[]{Math.sqrt(0.5),0,-Math.sqrt(0.5),0}));
+        for(SmartCubeReconstructionEngine.Token token:result.tokens) assertTrue(token.axis!=7);
+        cs.min2phase.CubieCube cube=new cs.min2phase.CubieCube();
+        for(SmartCubeSolveReconstruction.MoveEvent move:raw) cube=cube.move(move.move);
+        String actual=SOLVED;
+        for(SmartCubeReconstructionEngine.Token token:result.tokens) actual=applyNotation(actual,token);
+        assertEquals(com.dctimer.util.Utils.orientFacelets(cs.min2phase.Util.toFaceCube(cube),
+                nearest(new double[]{Math.sqrt(0.5),0,-Math.sqrt(0.5),0},1)),actual);
+    }
+
     @Test public void wideHalfTurnMayArriveAsTwoQuarterTurns() {
         assertEquals("r2 D",text(run(moves(12,200,12,240,0,600),
                 pose(-500,0,0),pose(220,0,-180))));
     }
 
+    @Test public void wideHalfTurnAcceptsTwoCoreQuartersAroundEncoderHalfTurn() {
+        assertEquals("R r2 D",text(run(moves(3,0,13,200,0,600),
+                pose(-500,0,0),pose(150,0,90),pose(250,0,180))));
+    }
+
+    @Test public void splitCoreWideHalfTurnsPreserveStateOnEveryAxisAndDirection() {
+        for(int face=0;face<6;face++) for(int sign:new int[]{-1,1}) {
+            int axis=new int[]{1,0,2}[face%3];
+            List<SmartCubeSolveReconstruction.MoveEvent> raw=moves(face*3+1,200,0,600);
+            SmartCubeReconstructionEngine.Result result=run(raw,
+                    pose(-500,0,0),pose(150,axis,sign*90),pose(250,axis,sign*180));
+            assertEquals(12+(face+3)%6,result.tokens.get(0).axis);
+            String actual=SOLVED;
+            for(SmartCubeReconstructionEngine.Token token:result.tokens) actual=applyNotation(actual,token);
+            cs.min2phase.CubieCube cube=new cs.min2phase.CubieCube().move(face*3+1).move(0);
+            assertEquals(com.dctimer.util.Utils.orientFacelets(cs.min2phase.Util.toFaceCube(cube),turn(axis,2)),actual);
+        }
+    }
+
+    @Test public void splitCoreDoesNotAbsorbDistantOrInterruptedRegrips() {
+        SmartCubeReconstructionEngine.Result distant=run(moves(6,0,13,300,0,1000),
+                pose(-500,0,0),pose(100,0,90),pose(600,0,180));
+        assertTrue(text(distant).contains("x' L2 x'"));
+        SmartCubeReconstructionEngine.Result interrupted=run(moves(6,0,13,200,0,230,6,600),
+                pose(-500,0,0),pose(150,0,90),pose(250,0,180));
+        for(SmartCubeReconstructionEngine.Token token:interrupted.tokens) assertTrue(token.axis<12);
+    }
+
     @Test public void rotationFarFromEncoderIsNotAWide() {
         assertEquals("L x B",text(run(moves(12,0,0,1000),pose(-500,0,0),pose(500,0,-90))));
+    }
+
+    @Test public void wideMatchingAllowsGyroToLeadOrLagBy250ms() {
+        for(int offset:new int[]{-250,-200,200,250}) {
+            assertEquals("r B",text(run(moves(12,400,0,1000),
+                    pose(-500,0,0),pose(400+offset,0,-90))));
+        }
+        for(int offset:new int[]{-251,251}) {
+            SmartCubeReconstructionEngine.Result result=run(moves(12,400,0,1000),
+                    pose(-500,0,0),pose(400+offset,0,-90));
+            for(SmartCubeReconstructionEngine.Token token:result.tokens) assertTrue(token.axis<12);
+        }
+    }
+
+    @Test public void splitCoreHalfUsesWiderWindowWithoutLosingPriority() {
+        assertEquals("R r2 D",text(run(moves(3,0,13,400,0,1100),
+                pose(-500,0,0),pose(200,0,90),pose(600,0,180))));
     }
 
     @Test public void algebraicSlicesMustCloseTheirFrameAndDoNotUseOld100msCutoff() {
@@ -114,6 +278,28 @@ public class SmartCubeReconstructionEngineTest {
         assertEquals(4,result.wastedRawMoves);
         assertEquals(400,result.wastedMs);
         for(SmartCubeReconstructionEngine.Token token:result.tokens) assertTrue(token.waste);
+    }
+
+    @Test public void inverseTurnsAcrossPhasesAreNotWaste() {
+        SmartCubeReconstructionEngine.Result result=SmartCubeReconstructionEngine.reconstruct(SOLVED,
+                moves(3,0,5,200),new int[]{1,2},IDENTITY,new ArrayList<SmartCubeSolveReconstruction.GyroSample>());
+        assertEquals("R R'",text(result));
+        for(SmartCubeReconstructionEngine.Token token:result.tokens) assertFalse(token.waste);
+        assertEquals(0,result.wastedRawMoves);
+        assertEquals(0,result.wastedMs);
+    }
+
+    @Test public void crossPhaseLoopDoesNotHideLoopWithinNextPhase() {
+        SmartCubeReconstructionEngine.Result result=SmartCubeReconstructionEngine.reconstruct(SOLVED,
+                moves(3,0,0,100,2,200,5,300),new int[]{1,2,2,2},IDENTITY,
+                new ArrayList<SmartCubeSolveReconstruction.GyroSample>());
+        assertEquals("R U U' R'",text(result));
+        assertFalse(result.tokens.get(0).waste);
+        assertTrue(result.tokens.get(1).waste);
+        assertTrue(result.tokens.get(2).waste);
+        assertFalse(result.tokens.get(3).waste);
+        assertEquals(2,result.wastedRawMoves);
+        assertEquals(200,result.wastedMs);
     }
 
     @Test public void overturnIsVisibleButDoesNotClaimWholeRunAsWastedTime() {

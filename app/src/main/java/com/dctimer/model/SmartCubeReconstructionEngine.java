@@ -17,7 +17,8 @@ import static com.dctimer.model.SmartCubeOrientation.*;
 final class SmartCubeReconstructionEngine {
     static final String FAMILIES = "URFDLBEMSxyzurfdlb";
     static final int CORE_SLACK_MS = 250;
-    static final int WIDE_SLACK_MS = 120;
+    static final int WIDE_SLACK_MS = 250;
+    private static final int ENCODER_GROUP_MS = 120;
 
     static final class Token {
         int axis, quarters, from, to, phase, startMs, endMs;
@@ -50,15 +51,25 @@ final class SmartCubeReconstructionEngine {
     static Result reconstruct(String start, List<SmartCubeSolveReconstruction.MoveEvent> moves,
                               int[] phases, int fallbackFrame, List<SmartCubeSolveReconstruction.GyroSample> samples,
                               boolean crossFirst) {
+        CoreTrack track = detectCore(samples, fallbackFrame);
         Result original = new Result();
-        boolean[] waste = findWaste(start, moves, original);
+        boolean[] waste = findWaste(start, moves, phases, original);
         List<SmartCubeSolveReconstruction.MoveEvent> grouped = new ArrayList<>();
         List<Integer> first = new ArrayList<>(), last = new ArrayList<>(), groupPhases = new ArrayList<>();
         for (int i = 0; i < moves.size(); i++) {
+            int sliceEnd=findInterleavedSliceHalf(moves,phases,waste,track.core,i);
+            if (sliceEnd>=0) {
+                int face=moves.get(i).move/3;
+                grouped.add(new SmartCubeSolveReconstruction.MoveEvent(face*3+1,0,moves.get(i).elapsedMs));
+                grouped.add(new SmartCubeSolveReconstruction.MoveEvent((face+3)%6*3+1,0,moves.get(sliceEnd).elapsedMs));
+                for (int j=0;j<2;j++) { first.add(i); last.add(sliceEnd); groupPhases.add(phases[i]); }
+                i=sliceEnd;
+                continue;
+            }
             int from = i, face = moves.get(i).move / 3, q = moves.get(i).move % 3 + 1;
             if (!waste[i] && i + 1 < moves.size() && !waste[i+1] && phases[i] == phases[i+1]
                     && moves.get(i+1).move / 3 == face && q != 2 && moves.get(i+1).move % 3 + 1 == q
-                    && moves.get(i+1).elapsedMs - moves.get(i).elapsedMs <= WIDE_SLACK_MS) {
+                    && moves.get(i+1).elapsedMs - moves.get(i).elapsedMs <= ENCODER_GROUP_MS) {
                 q = 2;
                 i++;
             }
@@ -67,7 +78,7 @@ final class SmartCubeReconstructionEngine {
         }
         int[] ids = new int[grouped.size()];
         for (int i = 0; i < ids.length; i++) ids[i] = groupPhases.get(i);
-        Result result = reconstructGrouped(start, grouped, ids, fallbackFrame, samples, crossFirst);
+        Result result = reconstructGrouped(start, grouped, ids, track, crossFirst);
         for (Token token : result.tokens) {
             token.from = first.get(token.from); token.to = last.get(token.to);
             if (!token.rotation()) {
@@ -81,78 +92,122 @@ final class SmartCubeReconstructionEngine {
         return result;
     }
 
-    private static Result reconstructGrouped(String start, List<SmartCubeSolveReconstruction.MoveEvent> moves,
-                              int[] phases, int fallbackFrame, List<SmartCubeSolveReconstruction.GyroSample> samples,
-                              boolean crossFirst) {
-        Result out = new Result();
-        List<CoreTurn> core = new ArrayList<>();
+    private static final class CoreTrack {
+        final List<CoreTurn> core = new ArrayList<>();
+        int frame;
+        boolean measured;
+        String inspection = "";
+    }
+
+    private static CoreTrack detectCore(List<SmartCubeSolveReconstruction.GyroSample> samples, int fallbackFrame) {
+        CoreTrack track = new CoreTrack();
+        List<CoreTurn> core = track.core;
         int frame = fallbackFrame;
-        boolean measured = !samples.isEmpty();
-        if (measured) {
-            int initial = nearest(samples.get(0).quaternion, 45);
-            if (initial < 0) { measured=false; }
-            else {
-                frame = initial;
-                StringBuilder inspection = new StringBuilder();
-                appendPath(inspection, IDENTITY, initial);
-                int previous=initial;
-                for (SmartCubeSolveReconstruction.GyroSample s : samples) {
-                    int next=nearest(s.quaternion, 35);
-                    if (next < 0 || next==previous) continue;
-                    int delta=compose(inverse(previous), next);
-                    for (int rotation : path(delta)) {
-                        int axis=rotation/3, q=rotation%3+1;
-                        if (s.elapsedMs < 0) {
-                            Token token=rotationToken(previous, axis, q, -1, 0, s.elapsedMs);
-                            if (inspection.length()>0) inspection.append(' ');
-                            inspection.append(token.text());
-                            frame=compose(previous, turn(axis,q));
-                        } else core.add(new CoreTurn(axis,q,s.elapsedMs));
-                        previous=compose(previous,turn(axis,q));
-                    }
-                }
-                out.inspection=inspection.toString();
-            }
+        int first = 0, initial = -1;
+        // Scramble completion can seed a tilted, unclassifiable pose. Keep looking instead
+        // of discarding the whole attempt, including all later observation samples.
+        while (first < samples.size()) {
+            initial = nearest(samples.get(first).quaternion, 45);
+            if (initial >= 0) break;
+            first++;
         }
-        boolean[] waste = findWaste(start,moves,out);
-        int[] pairEvidence=new int[moves.size()], wideEvidence=new int[moves.size()];
-        Arrays.fill(pairEvidence,-1); Arrays.fill(wideEvidence,-1);
+        boolean measured = initial >= 0;
+        if (measured) {
+            // A pose first recovered during solving must not be backdated to Inspection.
+            if (samples.get(first).elapsedMs <= 0) frame = initial;
+            int previous=frame;
+            for (int i=first;i<samples.size();i++) {
+                SmartCubeSolveReconstruction.GyroSample s=samples.get(i);
+                int next=nearest(s.quaternion, 35);
+                if (next < 0 || next==previous) continue;
+                int delta=compose(inverse(previous), next);
+                for (int rotation : path(delta)) {
+                    int axis=rotation/3, q=rotation%3+1;
+                    if (s.elapsedMs < 0) {
+                        frame=compose(previous, turn(axis,q));
+                    } else core.add(new CoreTurn(axis,q,s.elapsedMs));
+                    previous=compose(previous,turn(axis,q));
+                }
+            }
+            // Present the shortest route to the starting grip, not the observation history.
+            StringBuilder inspection = new StringBuilder();
+            appendPath(inspection, IDENTITY, frame);
+            track.inspection=inspection.toString();
+        }
+        track.frame=frame;
+        track.measured=measured;
+        return track;
+    }
+
+    private static Result reconstructGrouped(String start, List<SmartCubeSolveReconstruction.MoveEvent> moves,
+                              int[] phases, CoreTrack track, boolean crossFirst) {
+        Result out = new Result();
+        List<CoreTurn> core = track.core;
+        int frame = track.frame;
+        boolean measured = track.measured;
+        out.inspection = track.inspection;
+        boolean[] waste = findWaste(start,moves,phases,out);
+        int[] pairEvidence=new int[moves.size()], pairSecond=new int[moves.size()], wideEvidence=new int[moves.size()];
+        Arrays.fill(pairEvidence,-1); Arrays.fill(pairSecond,-1); Arrays.fill(wideEvidence,-1);
         // Reserve slice evidence before classifying one-face compensation as a wide gesture.
         for (int i=0; i+1<moves.size(); i++) {
             if (phases[i]!=phases[i+1] || !isPair(moves,i)) continue;
             int[] rotation=pairRotation(moves.get(i).move);
             int event=findCore(core,rotation[0],rotation[1],moves.get(i).elapsedMs,
                     moves.get(i+1).elapsedMs,CORE_SLACK_MS);
-            if (event>=0 && !hasOtherCoreWithin(core, moves.get(i).elapsedMs, moves.get(i+1).elapsedMs, event)) {
-                pairEvidence[i]=event; claim(core.get(event),rotation[1]); i++;
+            int second=-1;
+            if (event<0 && rotation[1]==2) {
+                event=findSplitCoreHalfTurn(core,rotation[0],moves,i,i+1,CORE_SLACK_MS);
+                if (event>=0) second=event+1;
+            }
+            if (event>=0 && !hasOtherCoreWithin(core, moves.get(i).elapsedMs, moves.get(i+1).elapsedMs, event,second)) {
+                pairEvidence[i]=event; pairSecond[i]=second;
+                claim(core.get(event),second<0?rotation[1]:core.get(event).quarters);
+                if (second>=0) claim(core.get(second),core.get(second).quarters);
+                i++;
             }
         }
         // A regrip between encoder turns breaks the gesture; keep its timestamp and frame update.
         boolean[] interruptedPairs=new boolean[moves.size()];
         for (int i=0;i+1<moves.size();i++) {
-            interruptedPairs[i]=hasOtherCoreWithin(core,moves.get(i).elapsedMs,moves.get(i+1).elapsedMs,pairEvidence[i]);
+            interruptedPairs[i]=hasOtherCoreWithin(core,moves.get(i).elapsedMs,moves.get(i+1).elapsedMs,pairEvidence[i],pairSecond[i]);
         }
-        for (int i=0; i<moves.size(); i++) {
+        // Reserve complete half-turn gestures before a nearby quarter turn can take their evidence.
+        for (int pass=0;pass<2;pass++) for (int i=0; i<moves.size(); i++) {
             int face=moves.get(i).move/3, q=moves.get(i).move%3+1;
+            if ((q==2)!=(pass==0)) continue;
             int axis=face%3==0 ? 1 : face%3==1 ? 0 : 2;
             int rotationQ=face<3 ? 4-q : q;
             int event=findCore(core,axis,rotationQ,moves.get(i).elapsedMs,moves.get(i).elapsedMs,WIDE_SLACK_MS);
-            if (event>=0 && (i==0 || pairEvidence[i-1]<0) && pairEvidence[i]<0) {
-                wideEvidence[i]=event; claim(core.get(event),rotationQ);
+            if ((i==0 || pairEvidence[i-1]<0) && pairEvidence[i]<0) {
+                if (event>=0) {
+                    wideEvidence[i]=event; claim(core.get(event),rotationQ);
+                } else if (q==2) {
+                    int split=findSplitCoreHalfTurn(core,axis,moves,i);
+                    if (split>=0) {
+                        wideEvidence[i]=split;
+                        claim(core.get(split),core.get(split).quarters);
+                        claim(core.get(split+1),core.get(split+1).quarters);
+                    }
+                }
             }
         }
         boolean[] pairPlan=new boolean[moves.size()];
         for (int from=0; from<moves.size();) {
             int end=from+1;
             while (end<moves.size() && phases[end]==phases[from]) end++;
-            boolean[] algebra=planPairs(moves,from,end,pairEvidence,wideEvidence,interruptedPairs,false,crossFirst && measured && phases[from]==0);
-            boolean[] forced=planPairs(moves,from,end,pairEvidence,wideEvidence,interruptedPairs,true,crossFirst && measured && phases[from]==0);
+            // Algebraic closure is only a fallback without gyro; measured gestures need core evidence.
+            boolean[] algebra=planPairs(moves,from,end,pairEvidence,wideEvidence,interruptedPairs,false,measured);
+            boolean[] forced=planPairs(moves,from,end,pairEvidence,wideEvidence,interruptedPairs,true,measured);
             boolean[] plan=count(forced)>count(algebra) ? forced : algebra;
             for (int i=from;i<end;i++) pairPlan[i]=plan[i-from];
             from=end;
         }
         // Release evidence for pairs that the phase plan did not use.
-        for (int i=0;i<moves.size();i++) if (pairEvidence[i]>=0 && !pairPlan[i]) core.get(pairEvidence[i]).claimed -= amount(pairRotation(moves.get(i).move)[1]);
+        for (int i=0;i<moves.size();i++) if (pairEvidence[i]>=0 && !pairPlan[i]) {
+            core.get(pairEvidence[i]).claimed -= pairSecond[i]<0?amount(pairRotation(moves.get(i).move)[1]):1;
+            if (pairSecond[i]>=0) core.get(pairSecond[i]).claimed--;
+        }
         int cursor=0;
         for (int i=0;i<moves.size();i++) {
             SmartCubeSolveReconstruction.MoveEvent move=moves.get(i);
@@ -216,6 +271,7 @@ final class SmartCubeReconstructionEngine {
                     || e.claimed + amount(q) > amount(e.quarters)) continue;
             if (e.quarters != q && !(e.quarters == 2 && q != 2
                     && (e.claimed == 0 || e.quarterDirection == q))) continue;
+            if (hasOtherCoreWithin(core,Math.min(start,e.time),Math.max(end,e.time),i)) continue;
             int d=Math.abs(e.time-(start+end)/2);
             if(d<distance) { found=i; distance=d; }
         }
@@ -224,11 +280,67 @@ final class SmartCubeReconstructionEngine {
 
     private static int amount(int q) { return q == 2 ? 2 : 1; }
 
+    private static int findInterleavedSliceHalf(List<SmartCubeSolveReconstruction.MoveEvent> moves,
+                                               int[] phases,boolean[] waste,List<CoreTurn> core,int from) {
+        int face=moves.get(from).move/3;
+        int axis=new int[]{1,0,2}[face%3];
+        int[] sum=new int[2],travel=new int[2];
+        for (int to=from;to<moves.size() && to<from+4;to++) {
+            SmartCubeSolveReconstruction.MoveEvent move=moves.get(to);
+            if (waste[to] || phases[to]!=phases[from] || move.move/3%3!=face%3
+                    || move.elapsedMs-moves.get(from).elapsedMs>CORE_SLACK_MS) break;
+            int side=move.move/3==face?0:1,q=move.move%3+1;
+            sum[side]=(sum[side]+q)%4;
+            travel[side]+=amount(q);
+            if (travel[side]>2) break;
+            if (to-from<2 || sum[0]!=2 || sum[1]!=2) continue;
+            int event=findCore(core,axis,2,moves.get(from).elapsedMs,move.elapsedMs,CORE_SLACK_MS);
+            int second=-1;
+            if (event<0) {
+                event=findSplitCoreHalfTurn(core,axis,moves,from,to,CORE_SLACK_MS);
+                if (event>=0) second=event+1;
+            }
+            if (event>=0 && !hasOtherCoreWithin(core,moves.get(from).elapsedMs,move.elapsedMs,event,second)) return to;
+        }
+        return -1;
+    }
+
+    /** One encoder half turn may arrive between two quarter-turn posture notifications. */
+    private static int findSplitCoreHalfTurn(List<CoreTurn> core,int axis,
+                                            List<SmartCubeSolveReconstruction.MoveEvent> moves,int moveIndex) {
+        return findSplitCoreHalfTurn(core,axis,moves,moveIndex,moveIndex,WIDE_SLACK_MS);
+    }
+
+    private static int findSplitCoreHalfTurn(List<CoreTurn> core,int axis,
+                                            List<SmartCubeSolveReconstruction.MoveEvent> moves,int from,int to,int slack) {
+        int startTime=moves.get(from).elapsedMs,endTime=moves.get(to).elapsedMs;
+        int time=startTime+(endTime-startTime)/2;
+        int best=-1, bestDistance=Integer.MAX_VALUE;
+        for (int i=0;i+1<core.size();i++) {
+            CoreTurn a=core.get(i),b=core.get(i+1);
+            if (a.claimed!=0 || b.claimed!=0 || a.axis!=axis || b.axis!=axis
+                    || a.quarters==2 || a.quarters!=b.quarters
+                    || a.time<startTime-slack || b.time>endTime+slack) continue;
+            int start=Math.min(startTime,a.time),end=Math.max(endTime,b.time);
+            if (hasOtherCoreWithin(core,start,end,i,i+1)) continue;
+            // Do not move a frame change past another encoder gesture (including a phase boundary).
+            if (from>0 && moves.get(from-1).elapsedMs>=start) continue;
+            if (to+1<moves.size() && moves.get(to+1).elapsedMs<=end) continue;
+            int distance=Math.abs(a.time-time)+Math.abs(b.time-time);
+            if (distance<bestDistance) { best=i; bestDistance=distance; }
+        }
+        return best;
+    }
+
     private static boolean hasOtherCoreWithin(List<CoreTurn> core, int start, int end, int matched) {
+        return hasOtherCoreWithin(core,start,end,matched,-1);
+    }
+
+    private static boolean hasOtherCoreWithin(List<CoreTurn> core, int start, int end, int matched,int second) {
         for (int i=0;i<core.size();i++) {
             CoreTurn event=core.get(i);
             if (event.time>end) break;
-            if (i!=matched && event.time>start) return true;
+            if (i!=matched && i!=second && event.time>start) return true;
         }
         return false;
     }
@@ -285,13 +397,18 @@ final class SmartCubeReconstructionEngine {
 
     private static int count(boolean[] values) { int n=0; for(boolean v:values) if(v)n++; return n; }
 
-    private static boolean[] findWaste(String start,List<SmartCubeSolveReconstruction.MoveEvent> moves,Result out) {
+    private static boolean[] findWaste(String start,List<SmartCubeSolveReconstruction.MoveEvent> moves,int[] phases,Result out) {
         boolean[] waste=new boolean[moves.size()];
         CubieCube cube=new CubieCube();
         if(start==null || Util.toCubieCube(start,cube)!=0) return waste;
         Map<String,Integer> seen=new HashMap<>();
         seen.put(start,-1);
         for(int i=0;i<moves.size();i++) {
+            if(i>0 && phases[i]!=phases[i-1]) {
+                // A phase-ending turn and the next phase's opening turn are not a wasted loop.
+                seen.clear();
+                seen.put(Util.toFaceCube(cube),i-1);
+            }
             cube=cube.move(moves.get(i).move);
             String state=Util.toFaceCube(cube);
             Integer previous=seen.put(state,i);
