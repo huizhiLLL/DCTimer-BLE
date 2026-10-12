@@ -32,6 +32,21 @@ public class Result {
     //private int pos = -1;
     private boolean mod;
     private Stats stats;
+    private final java.util.Map<String, ReconstructionTarget> pendingReconstructions = new java.util.HashMap<>();
+
+    public static final class ReconstructionTarget {
+        final int session, id;
+        final String key;
+        ReconstructionTarget(int session, int id) {
+            this.session=session; this.id=id; key=session+":"+id;
+        }
+    }
+
+    public ReconstructionTarget beginReconstruction(int id) {
+        ReconstructionTarget target=new ReconstructionTarget(sessionId,id);
+        pendingReconstructions.put(target.key,target);
+        return target;
+    }
 
     public Result(DBHelper db) {
         this.db = db;
@@ -229,7 +244,17 @@ public class Result {
         return cursor.getString(column + offset);
     }
 
-    public void insert(int time, int penalty, String scramble, boolean mp, SmartCube cube) {
+    public int getSessionId() { return sessionId; }
+
+    public boolean completeReconstruction(ReconstructionTarget target, SmartCube cube) {
+        if (pendingReconstructions.get(target.key)!=target) return false;
+        pendingReconstructions.remove(target.key);
+        boolean updated = db.completeReconstruction(target.session, target.id, cube.getMoveSequence(), cube.getSolveMeta());
+        if (updated && sessionId == target.session) mod = true;
+        return updated;
+    }
+
+    public int insert(int time, int penalty, String scramble, boolean mp, SmartCube cube) {
         addResult(time, penalty, mp);
         int d = 1;
         if (penalty == 2) penalty = d = 0;
@@ -252,8 +277,10 @@ public class Result {
         if (mp && multiPhase != null)
             for (int i = 0; i < 6; i++)
                 cv.put("p" + (i + 1), multiPhase[i][length - 1]);
-        db.addResult(sessionId, cv);
+        int id = db.addResult(sessionId, cv);
+        pendingReconstructions.remove(sessionId+":"+id);
         mod = true;
+        return id;
     }
 
     public void insert(int num, int u, int v, String scr) {
@@ -343,11 +370,14 @@ public class Result {
         }
         length--;
         db.deleteResult(sessionId, id);
+        pendingReconstructions.remove(sessionId+":"+id);
         mod = true;
         return 0;
     }
 
     public void clear() {
+        java.util.Iterator<ReconstructionTarget> pending=pendingReconstructions.values().iterator();
+        while(pending.hasNext()) if(pending.next().session==sessionId) pending.remove();
         db.clearSession(sessionId);
         length = 0;
         mod = true;

@@ -166,14 +166,29 @@ public class DBHelper extends SQLiteOpenHelper {
         } else db.delete(TBL_NAME[15], "sid=?", new String[] {String.valueOf(id)});
     }
 
-    public void addResult(int sid, ContentValues values) {
+    public int addResult(int sid, ContentValues values) {
         if (db == null) db = getWritableDatabase();
         if (sid >= 15) {
             values.put("sid", sid);
             sid = 15;
         }
         values.put("id", ++lastId);
-        db.insert(TBL_NAME[sid], null, values);
+        return db.insert(TBL_NAME[sid], null, values) == -1 ? -1 : lastId;
+    }
+
+    public boolean completeReconstruction(int sid, int id, String moves, String meta) {
+        if (id < 0) return false;
+        if (db == null) db = getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put("moves", moves);
+        values.put("solve_meta", meta);
+        String where = "id=? AND moves IS NULL AND solve_meta IS NULL";
+        String[] args = {String.valueOf(id)};
+        if (sid >= 15) {
+            where += " AND sid=?";
+            args = new String[]{String.valueOf(id), String.valueOf(sid)};
+        }
+        return db.update(TBL_NAME[Math.min(sid, 15)], values, where, args) == 1;
     }
 
     public Cursor getResult(int id) {

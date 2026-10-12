@@ -67,6 +67,22 @@ public class ResultDialog extends DialogFragment {
     private boolean expandSol;
     private boolean editingSolution;
 
+    public void updateReconstruction(int session, int id, String moves, String meta) {
+        Bundle args=getArguments();
+        if (args==null || args.getInt("resultSession",-1)!=session
+                || args.getInt("resultId",-1)!=id || editingSolution) return;
+        solution=moves;
+        solveMeta=meta;
+        args.putString("solution",moves);
+        args.putString("solveMeta",meta);
+        if (tvSolution!=null) {
+            tvSolution.setText(moves);
+            etSolution.setText(moves);
+            bindSolveStats(tableSolveStats,meta);
+            setSolveStatsVisible(expandSol);
+        }
+    }
+
     public static ResultDialog newInstance(int num, String time, String scramble, String date, int penalty, String comment, String solution, String solveMeta, int puzzle) {
         ResultDialog dialog = new ResultDialog();
         Bundle bundle = new Bundle();

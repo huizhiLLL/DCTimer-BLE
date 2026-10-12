@@ -62,8 +62,13 @@ public class SmartCubeSolveReconstruction {
 
     public static SmartCubeSolveReconstruction fromRawMoves(String startFacelet, List<MoveEvent> rawMoves,
                                                             List<GyroSample> gyro) {
+        return fromRawMoves(startFacelet, rawMoves, gyro, smartCubeSolveMethod);
+    }
+
+    static SmartCubeSolveReconstruction fromRawMoves(String startFacelet, List<MoveEvent> rawMoves,
+                                                     List<GyroSample> gyro, int solveMethod) {
         List<MoveEvent> moves = rawMoves == null ? new ArrayList<MoveEvent>() : new ArrayList<>(rawMoves);
-        int method = normalizeSolveMethod(smartCubeSolveMethod);
+        int method = normalizeSolveMethod(solveMethod);
         String[] names = getPhaseNames(method);
         int[] phaseIds = new int[moves.size()];
         CubieCube cube = new CubieCube();

@@ -7,6 +7,22 @@ import java.util.List;
 import static org.junit.Assert.*;
 
 public class SmartCubeGyroRecorderTest {
+    @Test public void backgroundSnapshotKeepsOriginalSolveMethod() {
+        int original=com.dctimer.APP.smartCubeSolveMethod;
+        try {
+            com.dctimer.APP.smartCubeSolveMethod=0;
+            SmartCube cube=new SmartCube();
+            cube.markSolved();
+            cube.markScrambled();
+            cube.applyMove(3,0,null);
+            SmartCube snapshot=cube.snapshotForReconstruction();
+            com.dctimer.APP.smartCubeSolveMethod=1;
+            snapshot.calcResult();
+            assertTrue(snapshot.getSolveMeta().contains("333-smart-cf4op"));
+        } finally {
+            com.dctimer.APP.smartCubeSolveMethod=original;
+        }
+    }
     @Test public void finalSliceCanUseLatePostureWithoutExtendingSolveTime() {
         SmartCubeGyroRecorder recorder=new SmartCubeGyroRecorder();
         recorder.accept(800,0,0,0,1);

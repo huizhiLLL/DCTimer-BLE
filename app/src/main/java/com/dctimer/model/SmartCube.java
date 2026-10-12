@@ -35,6 +35,7 @@ public class SmartCube implements Serializable {
     private transient List<Long> moveArrivals = new ArrayList<>();
     private transient SmartCube pendingReconstruction;
     private transient long reconstructionDeadline;
+    private transient int reconstructionMethod = -1;
     public static final int RECONSTRUCTION_TAIL_MS = SmartCubeGyroRecorder.TAIL_MS;
 
     private synchronized SmartCubeGyroRecorder gyroRecorder() {
@@ -57,6 +58,7 @@ public class SmartCube implements Serializable {
         snapshot.moveArrivals=new ArrayList<>(moveArrivals);
         snapshot.preIdx=preIdx;
         snapshot.solveStartState=solveStartState;
+        snapshot.reconstructionMethod=com.dctimer.APP.smartCubeSolveMethod;
         snapshot.gyroRecorder=gyroRecorder();
         gyroRecorder=snapshot.gyroRecorder.copyBaseline();
         pendingReconstruction=snapshot;
@@ -280,7 +282,8 @@ public class SmartCube implements Serializable {
         List<Long> arrivals = moveArrivals != null && moveArrivals.size() == rawData.size()
                 ? new ArrayList<>(moveArrivals.subList(preIdx, moveArrivals.size())) : new ArrayList<Long>();
         reconstruction = SmartCubeSolveReconstruction.fromRawMoves(solveStartState, solveMoves,
-                gyroRecorder().finish(arrivals, solveMoves));
+                gyroRecorder().finish(arrivals, solveMoves),
+                reconstructionMethod < 0 ? com.dctimer.APP.smartCubeSolveMethod : reconstructionMethod);
         reconstructedMoves = reconstruction.getMoveCount();
     }
 

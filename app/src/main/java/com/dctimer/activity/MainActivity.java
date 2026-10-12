@@ -191,6 +191,9 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     private boolean smartCubeAutoGyroCalibrationDone;
     private volatile boolean smartCubeFinishing;
     private Runnable pendingSmartCubeResult;
+    private final java.util.concurrent.ExecutorService reconstructionExecutor =
+            java.util.concurrent.Executors.newSingleThreadExecutor();
+    private int latestSmartResultId = -1;
     private final List<String> smartCubeScrambleMoves = new ArrayList<>();
     private final List<String> smartCubeScrambleDisplayMoves = new ArrayList<>();
     private final List<String> smartCubeScrambleStates = new ArrayList<>();
@@ -620,6 +623,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
     @Override
     protected void onDestroy() {
+        finishPendingSmartCubeResult();
+        reconstructionExecutor.shutdown();
         if (backgroundAdjustDialog != null) backgroundAdjustDialog.dismiss();
         Log.w("dct", "ondestroy");
         if (inspectionAlertPlayer != null) {
@@ -2779,12 +2784,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         });
     }
 
-    @Override
-    public void onUserInteraction() {
-        finishPendingSmartCubeResult();
-        super.onUserInteraction();
-    }
-
     private void finishPendingSmartCubeResult() {
         Runnable finish=pendingSmartCubeResult;
         if(finish==null) return;
@@ -2819,23 +2818,45 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                         timer.count();
                         final int localTime = (int) timer.time;
                         final int timeRes = finished.getResult();
+                        finishPendingSmartCubeResult();
+                        final String completedScramble = currentScramble.getScramble();
+                        final boolean completedBlindfold = currentScramble.isBlindfoldScramble();
+                        final int completedSession = result.getSessionId();
                         setTimerText(StringUtils.timeToString(timeRes));
+                        // Restore navigation and page content immediately; only reconstruction waits.
+                        setVisibility(true);
+                        if (!wca || completedBlindfold) { penaltyTime = 0; isDNF = false; }
+                        timer.setTimerState(DCTTimer.READY);
+                        smartCubeFinishing=false;
+                        final int completedId=saveSmartCubeTime(timeRes, null, completedScramble);
+                        final Result.ReconstructionTarget reconstructionTarget=result.beginReconstruction(completedId);
+                        latestSmartResultId=completedId;
                         pendingSmartCubeResult=new Runnable() {
                             @Override public void run() {
                                 pendingSmartCubeResult=null;
                                 cube.releaseReconstruction(finished);
-                                finished.calcResult();
-                                smartCubeFinishing=false;
-                                setVisibility(true);
-                                Log.w("dct", "smart cube solved local=" + localTime
-                                        + " device=" + timeRes
-                                        + " delta=" + (localTime - timeRes));
-                                int moveCount = finished.getReconstructedMovesCount();
-                                tvMulPhase.setText(String.format(Locale.getDefault(), "%d moves\n%.1f tps", moveCount, timeRes > 0 ? moveCount * 1000f / timeRes : 0f));
-                                Log.w("dct", "成绩 "+timeRes);
-                                if (!wca || currentScramble.isBlindfoldScramble()) { penaltyTime = 0; isDNF = false;}
-                                timer.setTimerState(DCTTimer.READY);
-                                saveSmartCubeTime(timeRes, finished);
+                                reconstructionExecutor.execute(new Runnable() {
+                                    @Override public void run() {
+                                        finished.calcResult();
+                                        runOnUiThread(new Runnable() {
+                                            @Override public void run() {
+                                                boolean updated=result.completeReconstruction(reconstructionTarget,finished);
+                                                if (!updated || isDestroyed() || result.getSessionId()!=completedSession) return;
+                                                resAdapter.notifyDataSetChanged();
+                                                androidx.fragment.app.Fragment fragment=getSupportFragmentManager().findFragmentByTag("result");
+                                                if (fragment instanceof ResultDialog) {
+                                                    ((ResultDialog) fragment).updateReconstruction(completedSession,completedId,
+                                                            finished.getMoveSequence(),finished.getSolveMeta());
+                                                }
+                                                if (latestSmartResultId==completedId && !canStart && timer.getTimerState()==DCTTimer.READY) {
+                                                    int moveCount=finished.getReconstructedMovesCount();
+                                                    tvMulPhase.setText(String.format(Locale.getDefault(), "%d moves\n%.1f tps",moveCount,
+                                                            timeRes>0?moveCount*1000f/timeRes:0f));
+                                                }
+                                            }
+                                        });
+                                    }
+                                });
                             }
                         };
                         handler.postDelayed(pendingSmartCubeResult,SmartCube.RECONSTRUCTION_TAIL_MS);
@@ -5691,10 +5712,11 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         isDNF = false;
     }
 
-    private void saveSmartCubeTime(int time, SmartCube cube) {
-        addTime(time, 0, cube);
+    private int saveSmartCubeTime(int time, SmartCube cube, String completedScramble) {
+        int id=addTime(time, 0, cube, completedScramble, true);
         penaltyTime = 0;
         isDNF = false;
+        return id;
     }
 
     public void addTime(int time, int penalty) {
@@ -5702,7 +5724,11 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     }
 
     private void addTime(int time, int penalty, SmartCube cube) {
-        result.insert(time, penalty, currentScramble.getScramble(), multiPhase > 0, cube);
+        addTime(time, penalty, cube, currentScramble.getScramble(), true);
+    }
+
+    private int addTime(int time, int penalty, SmartCube cube, String scramble, boolean advanceScramble) {
+        int id=result.insert(time, penalty, scramble, multiPhase > 0, cube);
         setTimerText(result.getTimeAt(result.length() - 1, false));
         btnSessionMean.setText(getString(R.string.session_mean, result.getSessionMean()));
         result.calcAvg();
@@ -5722,8 +5748,9 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             Snackbar.make(frame, getString(R.string.new_average_best) + result.getBestAvg2(), Snackbar.LENGTH_SHORT).show();
         }
         sessionManager.setPuzzle(sessionIdx, scrambleIdx);
-        newScramble();
+        if (advanceScramble) newScramble();
         setStatsLabel();
+        return id;
     }
 
     private void getResult() {
@@ -5746,6 +5773,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
         }
         ResultDialog dialog = ResultDialog.newInstance(p, time, scramble, date, penalty, comment, solution, solveMeta, sessionManager.getPuzzle(sessionIdx));
+        dialog.getArguments().putInt("resultSession",result.getSessionId());
+        dialog.getArguments().putInt("resultId",id);
         dialog.show(getSupportFragmentManager(), "result");
     }
 
