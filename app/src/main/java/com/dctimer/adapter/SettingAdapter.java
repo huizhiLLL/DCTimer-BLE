@@ -83,6 +83,7 @@ public class SettingAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     public static final int ST_SCREEN_ORIENTATION = 62;
     public static final int ST_APP_LANGUAGE = 63;
     public static final int ST_NAVIGATION_POSITION = 64;
+    public static final int ST_SMART_AUTO_GYRO_CALIBRATION = 65;
     private MainActivity dct;
     private Map<Integer, String> headers;
     private List<Map<String, Object>> cells;
@@ -192,6 +193,9 @@ public class SettingAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 case ST_SMART_CUBE_SIZE:
                     map.put("detail", String.valueOf(smartCubeSize));
                     map.put("value", smartCubeSize / 10 - 16);
+                    break;
+                case ST_SMART_AUTO_GYRO_CALIBRATION:
+                    map.put("detail", smartCubeAutoGyroCalibration);
                     break;
                 case ST_SMART_GYRO_FOLLOW:
                     map.put("detail", smartCubeGyroFollow);

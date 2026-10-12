@@ -401,6 +401,7 @@
         <item>Virtual cube size</item>
         <item>Gyro follows view</item>
         <item>Layout</item>
+        <item>Auto-calibrate on scramble</item>
     </array>
 
     <array name="item_scramble">

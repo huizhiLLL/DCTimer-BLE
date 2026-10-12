@@ -279,4 +279,5 @@
     <string name="background_load_failed">無法開啟此圖片，請選擇其他圖片。</string>
     <string name="background_choose">選擇圖片</string>
     <string name="background_edit_current">調整目前圖片</string>
+    <string name="smart_cube_auto_gyro_calibration_desc">開始轉亂第一步時重設姿態，請按標準朝向握持方塊。</string>
 </resources>

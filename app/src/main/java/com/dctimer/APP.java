@@ -108,6 +108,7 @@ public class APP extends Application {
     public static int smartCubeScrambleProgressStyle;
     public static int smartCubeSize;
     public static boolean smartCubeGyroFollow;
+    public static boolean smartCubeAutoGyroCalibration;
     public static int smartCubeLayoutMode;
     public static int appLanguage;
     public static int navigationPosition;
@@ -253,6 +254,7 @@ public class APP extends Application {
         smartCubeSize = sp.getInt("scvsize", 220);
         if (smartCubeSize < 160 || smartCubeSize > 320) smartCubeSize = 220;
         smartCubeGyroFollow = sp.getBoolean("scgyro", true);
+        smartCubeAutoGyroCalibration = sp.getBoolean("scgyroauto", true);
         smartCubeLayoutMode = sp.getInt("sclayout", 0);
         if (smartCubeLayoutMode < 0 || smartCubeLayoutMode > 1) smartCubeLayoutMode = 0;
     }
@@ -280,7 +282,7 @@ public class APP extends Application {
         swipeType[3] = 5;
         samplingRate = 44100; dataFormat = AudioFormat.ENCODING_PCM_8BIT;
         smartCubeTrainingOrientation = SmartCubeTraining.DEFAULT_TRAINING_ORIENTATION; smartCubeSolveMethod = 0; smartCubeScrambleProgressStyle = 0;
-        smartCubeSize = 220; smartCubeGyroFollow = true; smartCubeLayoutMode = 0;
+        smartCubeSize = 220; smartCubeGyroFollow = true; smartCubeAutoGyroCalibration = true; smartCubeLayoutMode = 0;
         appLanguage = 0; applyAppLanguage(appLanguage);
         navigationPosition = 0;
     }

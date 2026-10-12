@@ -394,6 +394,7 @@
         <item>虚拟魔方大小</item>
         <item>陀螺仪跟随视角</item>
         <item>布局</item>
+        <item>打乱时自动校准姿态</item>
     </array>
 
     <array name="item_scramble">

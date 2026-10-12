@@ -72,6 +72,17 @@ final class SmartCubeOrientation {
                 w*q[3]-x*q[0]-y*q[1]-z*q[2]};
     }
 
+    static double[] quaternionForFrame(int frame) {
+        double[] q={0,0,0,1};
+        for(int r:path(frame)) {
+            double angle=-Math.PI/2*(r%3+1);
+            double[] delta={0,0,0,Math.cos(angle/2)};
+            delta[r/3]=Math.sin(angle/2);
+            q=relative(new double[]{-q[0],-q[1],-q[2],q[3]},delta);
+        }
+        return q;
+    }
+
     static int nearest(double[] q, double maxDegrees) {
         double x=q[0], y=q[1], z=q[2], w=q[3];
         double[][] m = {{1-2*(y*y+z*z),2*(x*y-z*w),2*(x*z+y*w)},

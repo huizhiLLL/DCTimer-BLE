@@ -6,6 +6,7 @@ import java.util.List;
 /** Session-only sensor data. Neither this recorder nor its samples enter solve metadata. */
 final class SmartCubeGyroRecorder {
     private double[] origin, latest;
+    private double[] grip = {0,0,0,1};
     private boolean recording, overflow;
     private final List<Sample> samples = new ArrayList<>();
 
@@ -19,7 +20,8 @@ final class SmartCubeGyroRecorder {
         double[] q=SmartCubeOrientation.normalize(x,y,z,w);
         if(q==null) return;
         if(origin==null) origin=q;
-        latest=SmartCubeOrientation.relative(origin,q);
+        double[] relative=SmartCubeOrientation.relative(origin,q);
+        latest=SmartCubeOrientation.relative(new double[]{-grip[0],-grip[1],-grip[2],grip[3]},relative);
         if(!recording || overflow) return;
         // Retain at most 100 Hz; a corrupt/never-ending attempt cannot grow without bound.
         if(!samples.isEmpty() && time-samples.get(samples.size()-1).time<10) return;
@@ -30,6 +32,16 @@ final class SmartCubeGyroRecorder {
     synchronized void begin(long time) {
         samples.clear(); overflow=false; recording=true;
         if(latest!=null) samples.add(new Sample(time,latest));
+    }
+
+    synchronized boolean recalibrate(float x,float y,float z,float w,int orientation) {
+        double[] q=SmartCubeOrientation.normalize(x,y,z,w);
+        if(q==null || orientation<0 || orientation>=24) return false;
+        clearAttempt();
+        origin=q;
+        grip=SmartCubeOrientation.quaternionForFrame(orientation);
+        latest=grip.clone();
+        return true;
     }
 
     synchronized void ensureStarted(long time) { if(!recording) begin(time); }

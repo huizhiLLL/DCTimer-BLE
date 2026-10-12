@@ -394,6 +394,7 @@
         <item>虛擬方塊大小</item>
         <item>陀螺儀跟隨視角</item>
         <item>佈局</item>
+        <item>轉亂時自動校準姿態</item>
     </array>
 
     <array name="item_scramble">

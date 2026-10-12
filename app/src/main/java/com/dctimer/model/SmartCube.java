@@ -43,6 +43,10 @@ public class SmartCube implements Serializable {
         gyroRecorder().accept(System.nanoTime() / 1000000L, x, y, z, w);
     }
 
+    public boolean calibrateGyroForScramble(float x, float y, float z, float w, int orientation) {
+        return gyroRecorder().recalibrate(x, y, z, w, orientation);
+    }
+
     public synchronized void clearGyroSession() {
         gyroRecorder = new SmartCubeGyroRecorder();
     }
