@@ -5,7 +5,8 @@ import android.app.Dialog;
 import android.content.ClipData;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.graphics.Color;
+import android.content.res.ColorStateList;
+import android.content.res.TypedArray;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -389,7 +390,14 @@ public class ResultDialog extends DialogFragment {
         TableRow.LayoutParams params = new TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, weight);
         cell.setLayoutParams(params);
         cell.setText(text);
-        cell.setTextColor(header || detail ? 0xff666666 : Color.BLACK);
+        TypedArray colors = cell.getContext().obtainStyledAttributes(new int[] {
+                header || detail ? android.R.attr.textColorSecondary : android.R.attr.textColorPrimary
+        });
+        ColorStateList textColors = colors.getColorStateList(0);
+        if (textColors != null) {
+            cell.setTextColor(textColors);
+        }
+        colors.recycle();
         cell.setTextSize(header || detail ? 12 : 13);
         cell.setSingleLine(true);
         cell.setEllipsize(TextUtils.TruncateAt.END);
