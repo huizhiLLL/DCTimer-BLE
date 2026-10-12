@@ -5,6 +5,7 @@ import java.util.List;
 
 /** Session-only sensor data. Neither this recorder nor its samples enter solve metadata. */
 final class SmartCubeGyroRecorder {
+    static final int TAIL_MS = 250;
     private double[] origin, latest;
     private double[] grip = {0,0,0,1};
     private boolean recording, overflow;
@@ -46,6 +47,14 @@ final class SmartCubeGyroRecorder {
 
     synchronized void ensureStarted(long time) { if(!recording) begin(time); }
 
+    synchronized SmartCubeGyroRecorder copyBaseline() {
+        SmartCubeGyroRecorder copy=new SmartCubeGyroRecorder();
+        copy.origin=origin==null?null:origin.clone();
+        copy.latest=latest==null?null:latest.clone();
+        copy.grip=grip.clone();
+        return copy;
+    }
+
     synchronized void clearAttempt() { samples.clear(); recording=false; overflow=false; }
 
     synchronized List<SmartCubeSolveReconstruction.GyroSample> finish(List<Long> arrivals,
@@ -55,9 +64,10 @@ final class SmartCubeGyroRecorder {
             int cursor=0;
             long first=arrivals.get(0),last=arrivals.get(arrivals.size()-1);
             for(Sample sample:samples) {
-                if(sample.time>last) break;
+                if(sample.time>last+TAIL_MS) break;
                 int elapsed;
-                if(sample.time<first) elapsed=(int)Math.max(Integer.MIN_VALUE,sample.time-first);
+                if(sample.time>last) elapsed=moves.get(moves.size()-1).elapsedMs+(int)(sample.time-last);
+                else if(sample.time<first) elapsed=(int)Math.max(Integer.MIN_VALUE,sample.time-first);
                 else {
                     while(cursor+1<arrivals.size() && arrivals.get(cursor+1)<=sample.time) cursor++;
                     elapsed=moves.get(cursor).elapsedMs;

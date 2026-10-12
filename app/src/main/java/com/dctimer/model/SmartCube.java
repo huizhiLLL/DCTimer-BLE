@@ -33,14 +33,42 @@ public class SmartCube implements Serializable {
     private boolean scrambledNotified;
     private transient SmartCubeGyroRecorder gyroRecorder = new SmartCubeGyroRecorder();
     private transient List<Long> moveArrivals = new ArrayList<>();
+    private transient SmartCube pendingReconstruction;
+    private transient long reconstructionDeadline;
+    public static final int RECONSTRUCTION_TAIL_MS = SmartCubeGyroRecorder.TAIL_MS;
 
     private synchronized SmartCubeGyroRecorder gyroRecorder() {
         if (gyroRecorder == null) gyroRecorder = new SmartCubeGyroRecorder();
         return gyroRecorder;
     }
 
-    public void recordGyro(float x, float y, float z, float w) {
-        gyroRecorder().accept(System.nanoTime() / 1000000L, x, y, z, w);
+    public synchronized void recordGyro(float x, float y, float z, float w) {
+        long now=System.nanoTime()/1000000L;
+        gyroRecorder().accept(now, x, y, z, w);
+        if(pendingReconstruction!=null && now<=reconstructionDeadline) {
+            pendingReconstruction.gyroRecorder().accept(now,x,y,z,w);
+        }
+    }
+
+    /** Freeze this solve while its final posture packet is still in flight. */
+    public synchronized SmartCube snapshotForReconstruction() {
+        SmartCube snapshot=new SmartCube();
+        snapshot.rawData=new ArrayList<>(rawData);
+        snapshot.moveArrivals=new ArrayList<>(moveArrivals);
+        snapshot.preIdx=preIdx;
+        snapshot.solveStartState=solveStartState;
+        snapshot.gyroRecorder=gyroRecorder();
+        gyroRecorder=snapshot.gyroRecorder.copyBaseline();
+        pendingReconstruction=snapshot;
+        reconstructionDeadline=System.nanoTime()/1000000L+RECONSTRUCTION_TAIL_MS;
+        for(int i=preIdx+1;i<rawData.size();i++) snapshot.result+=rawData.get(i)&0xffff;
+        result=snapshot.result;
+        clearLastReconstruction();
+        return snapshot;
+    }
+
+    public synchronized void releaseReconstruction(SmartCube snapshot) {
+        if(pendingReconstruction==snapshot) pendingReconstruction=null;
     }
 
     public boolean calibrateGyroForScramble(float x, float y, float z, float w, int orientation) {
@@ -48,6 +76,7 @@ public class SmartCube implements Serializable {
     }
 
     public synchronized void clearGyroSession() {
+        pendingReconstruction = null;
         gyroRecorder = new SmartCubeGyroRecorder();
     }
 
@@ -131,6 +160,8 @@ public class SmartCube implements Serializable {
     }
 
     public void applyMove(int move, int time, String scramble) {
+        // A new encoder gesture is outside the finished solve's sensor tail.
+        synchronized(this) { pendingReconstruction=null; }
         if (moveArrivals == null) moveArrivals = new ArrayList<>();
         moveArrivals.add(System.nanoTime() / 1000000L);
         rawData.add(move << 16 | time);

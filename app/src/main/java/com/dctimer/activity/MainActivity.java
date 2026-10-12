@@ -189,6 +189,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     private double lastAcc;
     private String smartCubeScrambleCache = "";
     private boolean smartCubeAutoGyroCalibrationDone;
+    private volatile boolean smartCubeFinishing;
+    private Runnable pendingSmartCubeResult;
     private final List<String> smartCubeScrambleMoves = new ArrayList<>();
     private final List<String> smartCubeScrambleDisplayMoves = new ArrayList<>();
     private final List<String> smartCubeScrambleStates = new ArrayList<>();
@@ -594,6 +596,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     @Override
     protected void onPause() {
         super.onPause();
+        finishPendingSmartCubeResult();
         clearKeyboardHold();
         timerKeysDown.clear();
         if (timer.getTimerState() == DCTTimer.RUNNING) {
@@ -2669,7 +2672,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     }
 
     private void completeSmartCubeScramble(SmartCube cube) {
-        if (cube == null || timer.getTimerState() == DCTTimer.RUNNING) {
+        if (cube == null || smartCubeFinishing || timer.getTimerState() == DCTTimer.RUNNING) {
             return;
         }
         if (canStart && (timer.getTimerState() == DCTTimer.READY || timer.getTimerState() == DCTTimer.INSPECTING)) {
@@ -2776,6 +2779,20 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         });
     }
 
+    @Override
+    public void onUserInteraction() {
+        finishPendingSmartCubeResult();
+        super.onUserInteraction();
+    }
+
+    private void finishPendingSmartCubeResult() {
+        Runnable finish=pendingSmartCubeResult;
+        if(finish==null) return;
+        pendingSmartCubeResult=null;
+        handler.removeCallbacks(finish);
+        finish.run();
+    }
+
     private SmartCube.StateChangedCallback cubeStateChangeCallback = new SmartCube.StateChangedCallback() {
         @Override
         public void onScrambled(SmartCube cube) {
@@ -2785,9 +2802,11 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
         @Override
         public void onSolved(final SmartCube cube) {
-            if (timer.getTimerState() == DCTTimer.RUNNING) {
+            if (timer.getTimerState() == DCTTimer.RUNNING && !smartCubeFinishing) {
+                smartCubeFinishing=true;
+                final long solvedAt=SystemClock.uptimeMillis();
                 final boolean trainingScramble = isSmartCubeTrainingScramble();
-                cube.calcResult();
+                final SmartCube finished=cube.snapshotForReconstruction();
                 if (trainingScramble) {
                     cube.resetSolveTracking();
                 } else {
@@ -2796,20 +2815,30 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        timer.timeEnd = SystemClock.uptimeMillis();
+                        timer.timeEnd = solvedAt;
                         timer.count();
-                        setVisibility(true);
-                        int localTime = (int) timer.time;
-                        int timeRes = cube.getResult();
-                        Log.w("dct", "smart cube solved local=" + localTime
-                                + " device=" + timeRes
-                                + " delta=" + (localTime - timeRes));
-                        int moveCount = cube.getReconstructedMovesCount();
-                        tvMulPhase.setText(String.format(Locale.getDefault(), "%d moves\n%.1f tps", moveCount, timeRes > 0 ? moveCount * 1000f / timeRes : 0f));
-                        Log.w("dct", "成绩 "+timeRes);
-                        if (!wca || currentScramble.isBlindfoldScramble()) { penaltyTime = 0; isDNF = false;}
-                        timer.setTimerState(DCTTimer.READY);
-                        saveSmartCubeTime(timeRes, cube);
+                        final int localTime = (int) timer.time;
+                        final int timeRes = finished.getResult();
+                        setTimerText(StringUtils.timeToString(timeRes));
+                        pendingSmartCubeResult=new Runnable() {
+                            @Override public void run() {
+                                pendingSmartCubeResult=null;
+                                cube.releaseReconstruction(finished);
+                                finished.calcResult();
+                                smartCubeFinishing=false;
+                                setVisibility(true);
+                                Log.w("dct", "smart cube solved local=" + localTime
+                                        + " device=" + timeRes
+                                        + " delta=" + (localTime - timeRes));
+                                int moveCount = finished.getReconstructedMovesCount();
+                                tvMulPhase.setText(String.format(Locale.getDefault(), "%d moves\n%.1f tps", moveCount, timeRes > 0 ? moveCount * 1000f / timeRes : 0f));
+                                Log.w("dct", "成绩 "+timeRes);
+                                if (!wca || currentScramble.isBlindfoldScramble()) { penaltyTime = 0; isDNF = false;}
+                                timer.setTimerState(DCTTimer.READY);
+                                saveSmartCubeTime(timeRes, finished);
+                            }
+                        };
+                        handler.postDelayed(pendingSmartCubeResult,SmartCube.RECONSTRUCTION_TAIL_MS);
                     }
                 });
             }

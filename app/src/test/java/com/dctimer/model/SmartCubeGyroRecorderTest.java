@@ -7,6 +7,42 @@ import java.util.List;
 import static org.junit.Assert.*;
 
 public class SmartCubeGyroRecorderTest {
+    @Test public void finalSliceCanUseLatePostureWithoutExtendingSolveTime() {
+        SmartCubeGyroRecorder recorder=new SmartCubeGyroRecorder();
+        recorder.accept(800,0,0,0,1);
+        recorder.begin(900);
+        recorder.accept(1100,1,0,0,0);
+        recorder.accept(1300,0,0,0,1); // Outside the 250 ms tail.
+        List<SmartCubeSolveReconstruction.MoveEvent> moves=Arrays.asList(
+                new SmartCubeSolveReconstruction.MoveEvent(4,0,0),
+                new SmartCubeSolveReconstruction.MoveEvent(13,30,30));
+        List<SmartCubeSolveReconstruction.GyroSample> samples=recorder.finish(Arrays.asList(1000L,1030L),moves);
+        assertEquals(2,samples.size());
+        assertEquals(100,samples.get(1).elapsedMs);
+        SmartCubeReconstructionEngine.Result result=SmartCubeReconstructionEngine.reconstruct(
+                "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB",moves,
+                new int[]{1,1},SmartCubeOrientation.IDENTITY,samples);
+        assertEquals(1,result.tokens.size());
+        assertEquals("M2",result.tokens.get(0).text());
+        assertEquals(30,result.tokens.get(0).endMs);
+    }
+
+    @Test public void finishedSnapshotIsIndependentOfResetAndSubsequentMoves() {
+        SmartCube cube=new SmartCube();
+        cube.markSolved();
+        cube.markScrambled();
+        cube.applyMove(4,0,null);
+        cube.applyMove(13,80,null);
+        SmartCube finished=cube.snapshotForReconstruction();
+        assertEquals(80,finished.getResult());
+        cube.markSolved();
+        cube.applyMove(0,900,null);
+        finished.calcResult();
+        assertEquals(80,finished.getResult());
+        assertEquals(2,finished.getMovesCount());
+        cube.releaseReconstruction(finished);
+    }
+
     @Test public void recalibrationRemovesDriftAndPreservesAllTrainingFrames() {
         double angle=Math.toRadians(37)/2;
         float z=(float)Math.sin(angle), w=(float)Math.cos(angle);
