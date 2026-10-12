@@ -52,11 +52,19 @@
         </RadioGroup>
     </com.dctimer.widget.CustomToolbar>
 
+    <FrameLayout
+        android:id="@+id/bottom_navigation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:visibility="gone" />
+
     <TabHost
         android:id="@+id/tabhost"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_below="@id/toolbar" >
+        android:layout_below="@id/toolbar"
+        android:layout_above="@id/bottom_navigation" >
 
         <LinearLayout
             android:layout_width="match_parent"

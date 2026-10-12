@@ -91,7 +91,13 @@ public class DCTTimer {
     }
 
     public void cancelExternalRunning() {
+        cancelTiming();
+    }
+
+    public void cancelTiming() {
+        stopFreeze();
         cancelTimerTask();
+        handler.removeCallbacksAndMessages(null);
         inspectionState = 0;
         timerState = READY;
         time = 0;

@@ -158,6 +158,17 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     private int pendingScrambleExportCount;
 
     public boolean canStart;
+    private boolean keyboardSpaceHeld;
+    private long keyboardReadyAt;
+    private final Set<Integer> timerKeysDown = new HashSet<>();
+    private final Handler keyboardHandler = new Handler(Looper.getMainLooper());
+    private final Runnable keyboardReady = () -> {
+        if (keyboardSpaceHeld && canHandleTimerKeys()) {
+            canStart = true;
+            showReadyTimerText();
+            setTimerColor(0xff00ff00);
+        }
+    };
     public int lastScrambleType = -64;
     private boolean isSwipe;
     private boolean touchDown;
@@ -311,6 +322,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         tabHost.setOnTabChangedListener(new TabHost.OnTabChangeListener() {
             @Override
             public void onTabChanged(String s) {
+                clearKeyboardHold();
+                updateScrambleSelectorVisibility();
                 if (isTimerTabActive()) {
                     showScrambleView();
                 } else {
@@ -569,6 +582,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     @Override
     protected void onPause() {
         super.onPause();
+        clearKeyboardHold();
+        timerKeysDown.clear();
         if (timer.getTimerState() == DCTTimer.RUNNING) {
             timer.timeEnd = SystemClock.uptimeMillis();
             timer.count();
@@ -996,7 +1011,90 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             inputTime(event);
             return true;
         }
+        int key = event.getKeyCode();
+        if (event.getAction() == KeyEvent.ACTION_UP && timerKeysDown.remove(key)) {
+            if (key == KeyEvent.KEYCODE_SPACE && keyboardSpaceHeld) {
+                keyboardHandler.removeCallbacks(keyboardReady);
+                if (!event.isCanceled() && canHandleTimerKeys()) {
+                    if (SystemClock.uptimeMillis() >= keyboardReadyAt) keyboardReady.run();
+                    keyboardSpaceHeld = false;
+                    touchUp();
+                    canStart = false;
+                } else {
+                    clearKeyboardHold();
+                }
+            }
+            return true;
+        }
+        if (timerKeysDown.contains(key)) return true;
+        if (canHandleTimerKeys() && event.getAction() == KeyEvent.ACTION_DOWN
+                && event.getRepeatCount() == 0) {
+            if (key == KeyEvent.KEYCODE_ESCAPE) {
+                timerKeysDown.add(key);
+                clearKeyboardHold();
+                timer.cancelTiming();
+                canStart = false;
+                isSwipe = false;
+                mpCount = 0;
+                penaltyTime = 0;
+                isDNF = false;
+                clearReadyHoldUiState();
+                setTimerColor(APP.getTextColor());
+                setTimerText(getIdleTimerText());
+                tvMulPhase.setText("");
+                setVisibility(true);
+                if (!screenOn) releaseWakeLock();
+                return true;
+            }
+            if (timer.getTimerState() == DCTTimer.RUNNING) {
+                timerKeysDown.add(key);
+                isSwipe = false;
+                touchDown();
+                touchUp();
+                return true;
+            }
+            if (key == KeyEvent.KEYCODE_SPACE && (timer.getTimerState() == DCTTimer.READY
+                    || timer.getTimerState() == DCTTimer.INSPECTING)) {
+                timerKeysDown.add(key);
+                keyboardSpaceHeld = true;
+                canStart = false;
+                isSwipe = false;
+                timer.stopFreeze();
+                int delay = wca && !currentScramble.isBlindfoldScramble()
+                        && timer.getTimerState() == DCTTimer.READY ? 0 : freezeTime * 50;
+                keyboardReadyAt = SystemClock.uptimeMillis() + delay;
+                if (timer.getTimerState() == DCTTimer.READY && multiPhase > 0) tvMulPhase.setText("");
+                setTimerColor(timer.getTimerState() == DCTTimer.READY ? 0xffff0000 : 0xffffff00);
+                if (delay == 0) keyboardReady.run();
+                else keyboardHandler.postDelayed(keyboardReady, delay);
+                return true;
+            }
+        }
         return super.dispatchKeyEvent(event);
+    }
+
+    private boolean canHandleTimerKeys() {
+        return timer != null && enterTime == 0 && isTimerTabActive() && hasWindowFocus()
+                && inputTimeDialog == null && !drawer.isDrawerVisible(GravityCompat.START)
+                && !toolbar.isOverflowMenuShowing() && !(getCurrentFocus() instanceof EditText);
+    }
+
+    private void clearKeyboardHold() {
+        keyboardHandler.removeCallbacks(keyboardReady);
+        if (!keyboardSpaceHeld) return;
+        keyboardSpaceHeld = false;
+        canStart = false;
+        clearReadyHoldUiState();
+        setTimerColor(APP.getTextColor());
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (!hasFocus) {
+            clearKeyboardHold();
+            timerKeysDown.clear();
+        }
     }
 
     private static class UpdateInfo {
@@ -3008,6 +3106,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     private View.OnTouchListener mOnTouchListener = new View.OnTouchListener() {
         @Override
         public boolean onTouch(View v, MotionEvent event) {
+            if (keyboardSpaceHeld) return true;
             if (!simulateSS || enterTime == 1) {
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
@@ -3681,12 +3780,12 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 break;
             case ST_NAVIGATION_POSITION:
                 new AlertDialog.Builder(context)
-                        .setSingleChoiceItems(R.array.opt_navigation_position, navigationPosition, (dialog, which) -> {
+                        .setSingleChoiceItems(R.array.opt_navigation_position, navigationPosition, (navigationDialog, which) -> {
                             navigationPosition = which;
                             setPref("navpos", which);
                             stAdapter.setText(position, getResources().getStringArray(R.array.opt_navigation_position)[which]);
                             applyNavigationPosition();
-                            dialog.dismiss();
+                            navigationDialog.dismiss();
                         }).setNegativeButton(R.string.btn_cancel, null).show();
                 break;
             case ST_APP_LANGUAGE:    //应用语言
@@ -4494,6 +4593,9 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             btnRight.setVisibility(vi);
         }
         toolbar.setVisibility(!v && shouldPreserveSmartCubeImmersiveLayoutSpace() ? View.INVISIBLE : vi);
+        if (navigationPosition == 1) {
+            findViewById(R.id.bottom_navigation).setVisibility(toolbar.getVisibility());
+        }
         if (isTimerTabActive() && shouldShowTimerPageCubeState()) {
             scrambleView.setVisibility(View.GONE);
             if (smartCube3DView != null) {
@@ -4523,6 +4625,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         btnLeft.setAlpha(alpha);
         btnRight.setAlpha(alpha);
         toolbar.setAlpha(alpha);
+        findViewById(R.id.bottom_navigation).setAlpha(alpha);
         scrambleView.setAlpha(alpha);
         if (smartCube3DView != null) {
             smartCube3DView.setAlpha(active && shouldShowTimerPageCubeState() ? 1f : alpha);
@@ -4531,7 +4634,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         if (tvTest != null) {
             tvTest.setAlpha(alpha);
         }
-        tvTimer.setTranslationY(active ? (navigationPosition == 1 ? 1 : -1) * toolbar.getHeight() / 2f : 0f);
+        int bottomHeight = navigationPosition == 1 ? findViewById(R.id.bottom_navigation).getHeight() : 0;
+        tvTimer.setTranslationY(active ? (bottomHeight - toolbar.getHeight()) / 2f : 0f);
     }
 
     private void clearReadyHoldUiState() {
@@ -4889,18 +4993,25 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         getTheme().resolveAttribute(android.R.attr.actionBarSize, actionBarSize, true);
         int topHeight = TypedValue.complexToDimensionPixelSize(actionBarSize.data, getResources().getDisplayMetrics());
         int height = bottom ? Math.max(topHeight, Math.round(64 * dpi)) : topHeight;
-        RelativeLayout.LayoutParams barParams = (RelativeLayout.LayoutParams) toolbar.getLayoutParams();
-        barParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM, bottom ? RelativeLayout.TRUE : 0);
-        barParams.height = height;
-        toolbar.setLayoutParams(barParams);
-        RelativeLayout.LayoutParams contentParams = (RelativeLayout.LayoutParams) tabHost.getLayoutParams();
-        contentParams.addRule(RelativeLayout.BELOW, bottom ? 0 : R.id.toolbar);
-        contentParams.addRule(RelativeLayout.ABOVE, bottom ? R.id.toolbar : 0);
-        tabHost.setLayoutParams(contentParams);
         RadioGroup radioTab = findViewById(R.id.radio_tab);
-        ViewGroup.LayoutParams groupParams = radioTab.getLayoutParams();
-        groupParams.width = bottom ? ViewGroup.LayoutParams.MATCH_PARENT : ViewGroup.LayoutParams.WRAP_CONTENT;
-        radioTab.setLayoutParams(groupParams);
+        FrameLayout bottomNavigation = findViewById(R.id.bottom_navigation);
+        View selector = findViewById(R.id.scramble_selector);
+        ViewGroup timerPage = findViewById(R.id.tab_timer);
+        ((ViewGroup) radioTab.getParent()).removeView(radioTab);
+        ((ViewGroup) selector.getParent()).removeView(selector);
+        if (bottom) {
+            bottomNavigation.addView(radioTab, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, height));
+            toolbar.addView(selector, new androidx.appcompat.widget.Toolbar.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
+        } else {
+            toolbar.addView(radioTab, new androidx.appcompat.widget.Toolbar.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, topHeight, Gravity.CENTER));
+            timerPage.addView(selector, new RelativeLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
+        bottomNavigation.setVisibility(bottom ? View.VISIBLE : View.GONE);
+        updateScrambleSelectorVisibility();
         CenterRadioButton[] tabs = {rbTimer, rbResult, rbSetting};
         int[] labels = {R.string.tab_timer, R.string.tab_result, R.string.tab_settings};
         for (int i = 0; i < tabs.length; i++) {
@@ -4908,6 +5019,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             tab.setText(bottom ? getString(labels[i]) : "");
             tab.setContentDescription(getString(labels[i]));
             tab.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            tab.setTextColor(APP.getTextColor());
             tab.setSingleLine(true);
             tab.setCompoundDrawablePadding(bottom ? Math.round(3 * dpi) : 0);
             Drawable icon = tab.getCompoundDrawables()[1];
@@ -4924,7 +5036,12 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     }
 
     private void updateNavigationBackground() {
-        toolbar.setBackgroundColor(navigationPosition == 1 ? APP.getBackgroundColor() : Color.TRANSPARENT);
+        findViewById(R.id.bottom_navigation).setBackgroundColor(APP.getBackgroundColor());
+    }
+
+    private void updateScrambleSelectorVisibility() {
+        findViewById(R.id.scramble_selector).setVisibility(
+                navigationPosition == 0 || isTimerTabActive() ? View.VISIBLE : View.GONE);
     }
 
     private void setIconColor() {
@@ -4932,6 +5049,9 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         rbTimer.setColor(color);
         rbResult.setColor(color);
         rbSetting.setColor(color);
+        rbTimer.setTextColor(color);
+        rbResult.setTextColor(color);
+        rbSetting.setTextColor(color);
         toolbar.setItemColor(color);
         btnLeft.getDrawable().setColorFilter(color, PorterDuff.Mode.SRC_IN);
         btnRight.getDrawable().setColorFilter(color, PorterDuff.Mode.SRC_IN);
