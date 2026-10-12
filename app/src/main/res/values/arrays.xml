@@ -467,7 +467,13 @@
         <item>Megaminx</item>
     </array>
 
+    <string-array name="opt_navigation_position">
+        <item>Top</item>
+        <item>Bottom</item>
+    </string-array>
+
     <array name="item_interface">
+        <item>Navigation position</item>
         <item>Language</item>
         <item>Timer font</item>
         <item>Timer size</item>

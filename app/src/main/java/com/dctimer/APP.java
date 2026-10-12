@@ -110,6 +110,7 @@ public class APP extends Application {
     public static boolean smartCubeGyroFollow;
     public static int smartCubeLayoutMode;
     public static int appLanguage;
+    public static int navigationPosition;
 
     @Override
     public void onCreate() {
@@ -236,6 +237,7 @@ public class APP extends Application {
         screenOri = sp.getInt("screenori", 0);	// 屏幕方向
         samplingRate = sp.getInt("srate", 44100);
         dataFormat = sp.getInt("dform", AudioFormat.ENCODING_PCM_8BIT);
+        navigationPosition = sp.getInt("navpos", 0) == 1 ? 1 : 0;
         appLanguage = sp.getInt("applang", 0);
         if (appLanguage < 0 || appLanguage > 3) appLanguage = 0;
         applyAppLanguage(appLanguage);
@@ -278,6 +280,7 @@ public class APP extends Application {
         smartCubeSolveOrientation = 0; smartCubeTrainingOrientation = SmartCubeTraining.DEFAULT_TRAINING_ORIENTATION; smartCubeSolveMethod = 0; smartCubeScrambleProgressStyle = 0;
         smartCubeSize = 220; smartCubeGyroFollow = true; smartCubeLayoutMode = 0;
         appLanguage = 0; applyAppLanguage(appLanguage);
+        navigationPosition = 0;
     }
 
     public static void applyAppLanguage(int language) {

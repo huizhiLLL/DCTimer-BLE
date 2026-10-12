@@ -460,7 +460,13 @@
         <item>Megaminx</item>
     </array>
 
+    <string-array name="opt_navigation_position">
+        <item>頂部</item>
+        <item>底部</item>
+    </string-array>
+
     <array name="item_interface">
+        <item>導覽列位置</item>
         <item>語言</item>
         <item>計時器字型</item>
         <item>計時器字型大小</item>

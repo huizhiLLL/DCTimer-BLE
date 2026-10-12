@@ -16,6 +16,7 @@ import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.*;
+import android.graphics.drawable.Drawable;
 import android.hardware.*;
 import android.location.LocationManager;
 import android.net.Uri;
@@ -445,10 +446,10 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 new int[5], new Object[] {"", "", "", "", itemStr[7][megaColorScheme]}, new int[5],
                 new int[] {ST_SCHEME_NNN, ST_SCHEME_PYR, ST_SCHEME_SQ1, ST_SCHEME_SKEWB, ST_MEGA_SCHEME});
         Utils.addSection(headers, cells, getString(R.string.title_interface), getResources().getStringArray(R.array.item_interface),
-                new int[] {0, 0, 2, 0, 0, 0, 1, 2, 0, 0, 0},
-                new Object[] {getResources().getStringArray(R.array.opt_app_language)[appLanguage], itemStr[8][timerFont], String.valueOf(timerSize), "", "", "", !useBgcolor, "", "", "", ""},
-                new int[] {0, 0, 70<<16|(timerSize-50), 0, 0, 0, 0, 80<<16|(opacity-20), 0, 0, 0},
-                new int[] {ST_APP_LANGUAGE, ST_TIMER_FONT, ST_TIMER_SIZE, ST_BACKGROUND_COLOR, ST_TEXT_COLOR, ST_BACKGROUND_IMAGE, ST_SHOW_BACKGROUND_IMAGE, ST_OPACITY, ST_BEST_TIME_COLOR, ST_WORST_TIME_COLOR, ST_BEST_AVERAGE_COLOR});
+                new int[] {0, 0, 0, 2, 0, 0, 0, 1, 2, 0, 0, 0},
+                new Object[] {getResources().getStringArray(R.array.opt_navigation_position)[navigationPosition], getResources().getStringArray(R.array.opt_app_language)[appLanguage], itemStr[8][timerFont], String.valueOf(timerSize), "", "", "", !useBgcolor, "", "", "", ""},
+                new int[] {0, 0, 0, 70<<16|(timerSize-50), 0, 0, 0, 0, 80<<16|(opacity-20), 0, 0, 0},
+                new int[] {ST_NAVIGATION_POSITION, ST_APP_LANGUAGE, ST_TIMER_FONT, ST_TIMER_SIZE, ST_BACKGROUND_COLOR, ST_TEXT_COLOR, ST_BACKGROUND_IMAGE, ST_SHOW_BACKGROUND_IMAGE, ST_OPACITY, ST_BEST_TIME_COLOR, ST_WORST_TIME_COLOR, ST_BEST_AVERAGE_COLOR});
         Utils.addSection(headers, cells, getString(R.string.title_gesture), getResources().getStringArray(R.array.item_gesture),
                 new int[4], new Object[] {itemStr[15][swipeType[0]], itemStr[15][swipeType[1]], itemStr[15][swipeType[2]], itemStr[15][swipeType[3]]}, new int[4],
                 new int[] {ST_GESTURE_LEFT, ST_GESTURE_RIGHT, ST_GESTURE_UP, ST_GESTURE_DOWN});
@@ -3678,6 +3679,16 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                     }
                 }).setNegativeButton(R.string.btn_cancel, null).show();
                 break;
+            case ST_NAVIGATION_POSITION:
+                new AlertDialog.Builder(context)
+                        .setSingleChoiceItems(R.array.opt_navigation_position, navigationPosition, (dialog, which) -> {
+                            navigationPosition = which;
+                            setPref("navpos", which);
+                            stAdapter.setText(position, getResources().getStringArray(R.array.opt_navigation_position)[which]);
+                            applyNavigationPosition();
+                            dialog.dismiss();
+                        }).setNegativeButton(R.string.btn_cancel, null).show();
+                break;
             case ST_APP_LANGUAGE:    //应用语言
                 new AlertDialog.Builder(context).setSingleChoiceItems(R.array.opt_app_language, appLanguage, new DialogInterface.OnClickListener() {
                     @Override
@@ -4414,6 +4425,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
     //设置各种View、TextView颜色等 TODO
     private void setViews() {
+        applyNavigationPosition();
         //打乱显示
         //tvScramble.setTextSize(scrambleSize);
         TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(tvScramble, 8, scrambleSize, 1, TypedValue.COMPLEX_UNIT_SP);
@@ -4519,7 +4531,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         if (tvTest != null) {
             tvTest.setAlpha(alpha);
         }
-        tvTimer.setTranslationY(active ? -toolbar.getHeight() / 2f : 0f);
+        tvTimer.setTranslationY(active ? (navigationPosition == 1 ? 1 : -1) * toolbar.getHeight() / 2f : 0f);
     }
 
     private void clearReadyHoldUiState() {
@@ -4533,6 +4545,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     public void setBackgroundColor() {
         int color = APP.getBackgroundColor();
         frame.setBackgroundColor(color);
+        updateNavigationBackground();
         int gray = Utils.grayScale(color);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {   //6.0
             int visibility = gray > 200 ? View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR : 0;
@@ -4868,6 +4881,50 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         tvStat.setTextColor(color);
         btnScramble.setTextColor(color);
         //toolbar.setTitleTextColor(colors[1]);
+    }
+
+    private void applyNavigationPosition() {
+        boolean bottom = navigationPosition == 1;
+        TypedValue actionBarSize = new TypedValue();
+        getTheme().resolveAttribute(android.R.attr.actionBarSize, actionBarSize, true);
+        int topHeight = TypedValue.complexToDimensionPixelSize(actionBarSize.data, getResources().getDisplayMetrics());
+        int height = bottom ? Math.max(topHeight, Math.round(64 * dpi)) : topHeight;
+        RelativeLayout.LayoutParams barParams = (RelativeLayout.LayoutParams) toolbar.getLayoutParams();
+        barParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM, bottom ? RelativeLayout.TRUE : 0);
+        barParams.height = height;
+        toolbar.setLayoutParams(barParams);
+        RelativeLayout.LayoutParams contentParams = (RelativeLayout.LayoutParams) tabHost.getLayoutParams();
+        contentParams.addRule(RelativeLayout.BELOW, bottom ? 0 : R.id.toolbar);
+        contentParams.addRule(RelativeLayout.ABOVE, bottom ? R.id.toolbar : 0);
+        tabHost.setLayoutParams(contentParams);
+        RadioGroup radioTab = findViewById(R.id.radio_tab);
+        ViewGroup.LayoutParams groupParams = radioTab.getLayoutParams();
+        groupParams.width = bottom ? ViewGroup.LayoutParams.MATCH_PARENT : ViewGroup.LayoutParams.WRAP_CONTENT;
+        radioTab.setLayoutParams(groupParams);
+        CenterRadioButton[] tabs = {rbTimer, rbResult, rbSetting};
+        int[] labels = {R.string.tab_timer, R.string.tab_result, R.string.tab_settings};
+        for (int i = 0; i < tabs.length; i++) {
+            CenterRadioButton tab = tabs[i];
+            tab.setText(bottom ? getString(labels[i]) : "");
+            tab.setContentDescription(getString(labels[i]));
+            tab.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            tab.setSingleLine(true);
+            tab.setCompoundDrawablePadding(bottom ? Math.round(3 * dpi) : 0);
+            Drawable icon = tab.getCompoundDrawables()[1];
+            int size = bottom ? Math.round(24 * dpi) : icon.getIntrinsicHeight();
+            icon.setBounds(0, 0, bottom ? size : icon.getIntrinsicWidth(), size);
+            tab.setCompoundDrawables(null, icon, null, null);
+            RadioGroup.LayoutParams tabParams = (RadioGroup.LayoutParams) tab.getLayoutParams();
+            tabParams.width = bottom ? 0 : topHeight;
+            tabParams.weight = bottom ? 1 : 0;
+            tabParams.height = height;
+            tab.setLayoutParams(tabParams);
+        }
+        updateNavigationBackground();
+    }
+
+    private void updateNavigationBackground() {
+        toolbar.setBackgroundColor(navigationPosition == 1 ? APP.getBackgroundColor() : Color.TRANSPARENT);
     }
 
     private void setIconColor() {

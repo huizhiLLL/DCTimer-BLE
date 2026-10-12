@@ -18,6 +18,12 @@ public class CenterRadioButton extends AppCompatRadioButton {
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        if (length() > 0) {
+            // 图标和文字由 TextView 的 gravity 一起居中。
+            setPadding(getPaddingLeft(), 0, getPaddingRight(), 0);
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+            return;
+        }
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
         // 拿到真实图片的高度，用控件的测量高度减去真实高度/2就是
         // padding值，将该padding值设置给topPadding就行了，其它padding保持正常的值

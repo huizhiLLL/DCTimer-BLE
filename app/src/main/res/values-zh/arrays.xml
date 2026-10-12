@@ -460,7 +460,13 @@
         <item>五魔方</item>
     </array>
 
+    <string-array name="opt_navigation_position">
+        <item>顶部</item>
+        <item>底部</item>
+    </string-array>
+
     <array name="item_interface">
+        <item>导航栏位置</item>
         <item>语言</item>
         <item>计时器字体</item>
         <item>计时器字体大小</item>
