@@ -4018,11 +4018,13 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             case 47:    //背景图片
                 if (TextUtils.isEmpty(picUri) && TextUtils.isEmpty(picPath)) selectPic();
                 else new AlertDialog.Builder(context).setTitle(R.string.background_adjust)
-                        .setItems(new String[] {getString(R.string.background_edit_current), getString(R.string.background_choose)},
+                        .setItems(new String[] {getString(R.string.background_edit_current), getString(R.string.background_choose),
+                                getString(R.string.background_clear)},
                                 (choiceDialog, choice) -> {
                                     if (choice == 0) adjustBackground(picUri, picPath,
                                             new BackgroundCrop(backgroundX, backgroundY, backgroundZoom));
-                                    else selectPic();
+                                    else if (choice == 1) selectPic();
+                                    else clearBackgroundImage();
                                 }).show();
                 break;
             case 48:    //显示背景图
@@ -6066,6 +6068,20 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             result = result + extension;
         }
         return result;
+    }
+
+    private void clearBackgroundImage() {
+        picUri = "";
+        picPath = "";
+        backgroundX = backgroundY = 0.5f;
+        backgroundZoom = 1f;
+        useBgcolor = true;
+        sp.edit().remove("picuri").remove("picpath")
+                .remove("bg_x").remove("bg_y").remove("bg_zoom")
+                .putBoolean("bgcolor", true).apply();
+        setBackgroundColor();
+        bitmap = null;
+        stAdapter.setCheck(ST_SHOW_BACKGROUND_IMAGE, false);
     }
 
     private void adjustBackground(String uri, String path, BackgroundCrop crop) {

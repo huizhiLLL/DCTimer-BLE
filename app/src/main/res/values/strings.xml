@@ -281,5 +281,6 @@
     <string name="background_load_failed">Unable to open this image. Choose another image.</string>
     <string name="background_choose">Choose image</string>
     <string name="background_edit_current">Adjust current image</string>
+    <string name="background_clear">Clear current background</string>
     <string name="smart_cube_auto_gyro_calibration_desc">Reset orientation when the scramble is complete. Hold the cube in the standard orientation.</string>
 </resources>
