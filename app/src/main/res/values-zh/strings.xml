@@ -279,5 +279,5 @@
     <string name="background_load_failed">无法打开此图片，请选择其他图片。</string>
     <string name="background_choose">选择图片</string>
     <string name="background_edit_current">调整当前图片</string>
-    <string name="smart_cube_auto_gyro_calibration_desc">开始打乱第一步时重置姿态，请按标准朝向握持魔方。</string>
+    <string name="smart_cube_auto_gyro_calibration_desc">完成打乱最后一步时重置姿态，请按标准朝向握持魔方。</string>
 </resources>

@@ -2506,15 +2506,10 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         });
     }
 
-    private void maybeAutoCalibrateSmartCubeGyro(SmartCube cube, int move, String previousState) {
-        if (!smartCubeAutoGyroCalibration) return;
+    private void maybeAutoCalibrateSmartCubeGyro(SmartCube cube) {
+        if (!smartCubeAutoGyroCalibration || GanRobotSessionState.isRobotMoving()) return;
         ensureSmartCubeScrambleCache();
-        if (smartCubeAutoGyroCalibrationDone || smartCubeScrambleMoves.isEmpty()
-                || smartCubeScrambleProgress != 0 || smartCubeScramblePendingMove != null
-                || !TextUtils.equals(previousState, getSmartCubeScrambleStartState())) return;
-        int firstMove = parseScrambleMove(smartCubeScrambleMoves.get(0));
-        if (firstMove < 0 || move / 3 != firstMove / 3
-                || (firstMove % 3 != 1 && move != firstMove)) return;
+        if (smartCubeAutoGyroCalibrationDone || smartCubeScrambleMoves.isEmpty()) return;
         // Consume this scramble's opportunity even if no posture has arrived yet.
         smartCubeAutoGyroCalibrationDone = true;
         float[] gyro = new float[4];
@@ -2648,9 +2643,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         boolean wasRunning = timer.getTimerState() == DCTTimer.RUNNING;
         boolean waitingForSolveStart = canStart
                 && (timer.getTimerState() == DCTTimer.READY || timer.getTimerState() == DCTTimer.INSPECTING);
-        if (!wasRunning && !waitingForSolveStart && trackScrambleDeviation && !GanRobotSessionState.isRobotMoving()) {
-            maybeAutoCalibrateSmartCubeGyro(cube, move, previousState);
-        }
         updateSmartCubeCompletionChecker(cube);
         cube.applyMove(move, time, isSmartCubeTrainingScramble() ? null : currentScramble.getCubeState());
         GanRobotSessionState.setLatestSmartCubeState(cube.getCubeState());
@@ -2683,6 +2675,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         if (canStart && (timer.getTimerState() == DCTTimer.READY || timer.getTimerState() == DCTTimer.INSPECTING)) {
             return;
         }
+        // Calibrate at the completed scramble before seeding observation samples.
+        maybeAutoCalibrateSmartCubeGyro(cube);
         cube.markScrambled();
         smartCubeScrambleProgress = smartCubeScrambleMoves.size();
         smartCubeScramblePendingMove = null;
