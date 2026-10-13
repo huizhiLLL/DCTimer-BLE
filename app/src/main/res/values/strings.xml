@@ -283,4 +283,9 @@
     <string name="background_edit_current">Adjust current image</string>
     <string name="background_clear">Clear current background</string>
     <string name="smart_cube_auto_gyro_calibration_desc">Reset orientation when the scramble is complete. Hold the cube in the standard orientation.</string>
+    <string name="solve_stats_phase">Phase</string>
+    <string name="solve_stats_observation">Obs(s)</string>
+    <string name="solve_stats_execution">Exec(s)</string>
+    <string name="solve_stats_moves">Moves</string>
+    <string name="solve_stats_tps">TPS</string>
 </resources>

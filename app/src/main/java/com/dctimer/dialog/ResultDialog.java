@@ -53,6 +53,7 @@ public class ResultDialog extends DialogFragment {
     private TextView tvSolution;
     private EditText etSolution;
     private TableLayout tableSolveStats;
+    private View scrollSolveStats;
     private ImageView imgArrow;
     private ImageView imgSolutionEdit;
     private int num;
@@ -126,6 +127,7 @@ public class ResultDialog extends DialogFragment {
         imgArrow = view.findViewById(R.id.iv_arrow);
         imgSolutionEdit = view.findViewById(R.id.iv_solution_edit);
         tableSolveStats = view.findViewById(R.id.table_solve_stats);
+        scrollSolveStats = view.findViewById(R.id.scroll_solve_stats);
         tvNum.setText("#" + (num + 1));
         tvTime.setText(time);
         tvScramble.setText(scramble);
@@ -304,7 +306,7 @@ public class ResultDialog extends DialogFragment {
 
     private void setSolveStatsVisible(boolean visible) {
         if (tableSolveStats != null && tableSolveStats.getChildCount() > 0) {
-            tableSolveStats.setVisibility(visible ? View.VISIBLE : View.GONE);
+            scrollSolveStats.setVisibility(visible ? View.VISIBLE : View.GONE);
         }
     }
 
@@ -312,21 +314,23 @@ public class ResultDialog extends DialogFragment {
         table.removeAllViews();
         List<PhaseStat> stats = parsePhaseStats(meta);
         if (stats.isEmpty()) {
-            table.setVisibility(View.GONE);
+            scrollSolveStats.setVisibility(View.GONE);
             return;
         }
-        addStatsRow(table, "", "Time", "Moves", "TPS", true, false);
+        addStatsRow(table, getString(R.string.solve_stats_phase), getString(R.string.solve_stats_observation),
+                getString(R.string.solve_stats_execution), getString(R.string.solve_stats_moves),
+                getString(R.string.solve_stats_tps), true, false);
         for (PhaseStat stat : stats) {
-            addStatsRow(table, stat.name, formatSeconds(stat.timeMs), String.valueOf(stat.moves),
+            addStatsRow(table, stat.name, formatSplitTime(stat, true), formatSplitTime(stat, false), String.valueOf(stat.moves),
                     formatTps(stat.moves, stat.timeMs), false, false);
             if (stat.children != null && !stat.children.isEmpty()) {
                 for (PhaseStat child : stat.children) {
-                    addStatsRow(table, child.name, formatSeconds(child.timeMs), String.valueOf(child.moves),
+                    addStatsRow(table, child.name, formatSplitTime(child, true), formatSplitTime(child, false), String.valueOf(child.moves),
                             formatTps(child.moves, child.timeMs), false, true);
                 }
             }
         }
-        table.setVisibility(expandSol ? View.VISIBLE : View.GONE);
+        scrollSolveStats.setVisibility(expandSol ? View.VISIBLE : View.GONE);
     }
 
     private List<PhaseStat> parsePhaseStats(String meta) {
@@ -351,7 +355,9 @@ public class ResultDialog extends DialogFragment {
                 if (TextUtils.isEmpty(name) || moves <= 0) {
                     continue;
                 }
-                addPhaseStat(result, name, moves, timeMs);
+                int observationMs = phase.optInt("observationMs", -1);
+                if (observationMs > timeMs) observationMs = -1;
+                addPhaseStat(result, name, moves, timeMs, observationMs);
             }
         } catch (JSONException e) {
             Log.w("dct", "parse solve_meta failed", e);
@@ -360,26 +366,28 @@ public class ResultDialog extends DialogFragment {
         return result;
     }
 
-    private void addPhaseStat(List<PhaseStat> stats, String name, int moves, int timeMs) {
+    private void addPhaseStat(List<PhaseStat> stats, String name, int moves, int timeMs, int observationMs) {
         if (name != null && name.startsWith("F2L")) {
             PhaseStat f2l = findPhaseStat(stats, "F2L");
             if (f2l == null) {
-                f2l = new PhaseStat("F2L", 0, 0);
+                f2l = new PhaseStat("F2L", 0, 0, 0);
                 stats.add(f2l);
             }
             f2l.moves += moves;
             f2l.timeMs += timeMs;
-            f2l.children.add(new PhaseStat(name, moves, timeMs));
+            f2l.observationMs = f2l.observationMs < 0 || observationMs < 0 ? -1 : f2l.observationMs + observationMs;
+            f2l.children.add(new PhaseStat(name, moves, timeMs, observationMs));
             return;
         }
         for (PhaseStat stat : stats) {
             if (stat.name.equals(name)) {
                 stat.moves += moves;
                 stat.timeMs += timeMs;
+                stat.observationMs = stat.observationMs < 0 || observationMs < 0 ? -1 : stat.observationMs + observationMs;
                 return;
             }
         }
-        stats.add(new PhaseStat(name, moves, timeMs));
+        stats.add(new PhaseStat(name, moves, timeMs, observationMs));
     }
 
     private PhaseStat findPhaseStat(List<PhaseStat> stats, String name) {
@@ -391,20 +399,22 @@ public class ResultDialog extends DialogFragment {
         return null;
     }
 
-    private void addStatsRow(TableLayout table, String phase, String moves, String seconds, String tps, boolean header, boolean detail) {
+    private void addStatsRow(TableLayout table, String phase, String observation, String execution,
+                             String moves, String tps, boolean header, boolean detail) {
         TableRow row = new TableRow(getActivity());
         row.setLayoutParams(new TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, TableLayout.LayoutParams.WRAP_CONTENT));
-        row.addView(createStatsCell(detail ? "  " + phase : phase, header, detail, 1.05f));
-        row.addView(createStatsCell(moves, header, detail, 0.85f));
-        row.addView(createStatsCell(seconds, header, detail, 0.95f));
-        row.addView(createStatsCell(tps, header, detail, 1.15f));
+        row.addView(createStatsCell(detail ? "  " + phase : phase, header, detail, 52));
+        row.addView(createStatsCell(observation, header, detail, 60));
+        row.addView(createStatsCell(execution, header, detail, 60));
+        row.addView(createStatsCell(moves, header, detail, 40));
+        row.addView(createStatsCell(tps, header, detail, 44));
         table.addView(row);
     }
 
-    private TextView createStatsCell(String text, boolean header, boolean detail, float weight) {
+    private TextView createStatsCell(String text, boolean header, boolean detail, int minWidthDp) {
         TextView cell = new TextView(getActivity());
-        TableRow.LayoutParams params = new TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, weight);
-        cell.setLayoutParams(params);
+        cell.setLayoutParams(new TableRow.LayoutParams(TableRow.LayoutParams.WRAP_CONTENT, TableRow.LayoutParams.WRAP_CONTENT));
+        cell.setMinWidth(APP.getPixel(minWidthDp));
         cell.setText(text);
         TypedArray colors = cell.getContext().obtainStyledAttributes(new int[] {
                 header || detail ? android.R.attr.textColorSecondary : android.R.attr.textColorPrimary
@@ -416,15 +426,21 @@ public class ResultDialog extends DialogFragment {
         colors.recycle();
         cell.setTextSize(header || detail ? 12 : 13);
         cell.setSingleLine(true);
-        cell.setEllipsize(TextUtils.TruncateAt.END);
-        int horizontal = APP.getPixel(4);
+        // Measure complete values; the surrounding scroll view handles overflow.
+        int horizontal = APP.getPixel(2);
         int vertical = APP.getPixel(3);
         cell.setPadding(horizontal, vertical, horizontal, vertical);
         return cell;
     }
 
+    private String formatSplitTime(PhaseStat stat, boolean observation) {
+        if (stat.observationMs < 0) return "—";
+        return formatSeconds(observation ? stat.observationMs : stat.timeMs - stat.observationMs);
+    }
+
     private String formatSeconds(int ms) {
-        return StringUtils.timeToString(ms) + " s";
+        return String.format(Locale.US, APP.timerAccuracy == 1 ? "%.3f" : "%.2f", ms / 1000.0)
+                .replace('.', APP.decimalMark == 0 ? '.' : ',');
     }
 
     private String formatTps(int moves, int ms) {
@@ -438,12 +454,14 @@ public class ResultDialog extends DialogFragment {
         final String name;
         int moves;
         int timeMs;
+        int observationMs;
         final List<PhaseStat> children = new ArrayList<>();
 
-        PhaseStat(String name, int moves, int timeMs) {
+        PhaseStat(String name, int moves, int timeMs, int observationMs) {
             this.name = name;
             this.moves = moves;
             this.timeMs = timeMs;
+            this.observationMs = observationMs;
         }
     }
 }

@@ -199,14 +199,21 @@
                 android:textColor="@color/colorText"
                 android:visibility="gone" />
 
-            <TableLayout
-                android:id="@+id/table_solve_stats"
+            <HorizontalScrollView
+                android:id="@+id/scroll_solve_stats"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:shrinkColumns="0,1,2,3"
-                android:stretchColumns="1,2,3"
-                android:visibility="gone" />
+                android:fillViewport="true"
+                android:scrollbars="horizontal"
+                android:visibility="gone">
+
+                <TableLayout
+                    android:id="@+id/table_solve_stats"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:stretchColumns="0,1,2,3,4" />
+            </HorizontalScrollView>
         </LinearLayout>
     </ScrollView>
 </LinearLayout>

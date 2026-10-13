@@ -180,6 +180,7 @@ public class SmartCubeSolveReconstruction {
             sb.append("\"startMs\":").append(phase.startMs);
             sb.append(',');
             sb.append("\"endMs\":").append(phase.endMs);
+            sb.append(",\"observationMs\":").append(Math.max(0, phase.executionStartMs - phase.startMs));
             sb.append(',');
             appendJsonField(sb, "moves", phase.moves);
             sb.append('}');
@@ -234,8 +235,14 @@ public class SmartCubeSolveReconstruction {
         final int moveCount;
         final int startMs;
         final int endMs;
+        final int executionStartMs;
 
         Phase(String name, String moves, int moveCount, int startMs, int endMs) {
+            this(name, moves, moveCount, startMs, endMs, startMs);
+        }
+
+        Phase(String name, String moves, int moveCount, int startMs, int endMs, int executionStartMs) {
+            this.executionStartMs = Math.max(startMs, Math.min(endMs, executionStartMs));
             this.name = name;
             this.moves = moves;
             this.moveCount = moveCount;
@@ -280,7 +287,17 @@ public class SmartCubeSolveReconstruction {
         int safeEnd = Math.min(end, moves.size() - 1);
         String moveText = joinMoves(moves, start, safeEnd);
         int count = countNonRotationMoves(moves, start, safeEnd);
-        return new Phase(name, moveText, count, moves.get(start).startMs, moves.get(safeEnd).endMs);
+        int executionStartMs = moves.get(safeEnd).endMs;
+        for (int i = start; i <= safeEnd; i++) {
+            PrettyMove move = moves.get(i);
+            // Leading U-layer adjustments and rotations belong to observation.
+            if (!move.isRotation() && move.axis != 0) {
+                executionStartMs = move.startMs;
+                break;
+            }
+        }
+        return new Phase(name, moveText, count, moves.get(start).startMs,
+                moves.get(safeEnd).endMs, executionStartMs);
     }
 
     private static List<Phase> includePhaseGaps(List<Phase> phases) {
@@ -291,7 +308,7 @@ public class SmartCubeSolveReconstruction {
                 result.add(phase);
                 continue;
             }
-            result.add(new Phase(phase.name, phase.moves, phase.moveCount, previousEndMs, phase.endMs));
+            result.add(new Phase(phase.name, phase.moves, phase.moveCount, previousEndMs, phase.endMs, phase.executionStartMs));
             previousEndMs = phase.endMs;
         }
         return result;

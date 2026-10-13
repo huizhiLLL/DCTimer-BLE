@@ -155,6 +155,51 @@ public class SmartCubeSolveReconstructionTest {
         assertEquals(4000, f2lTimeMs);
     }
 
+    @Test
+    public void observationIncludesLeadingUpperTurnsAndRotationsOnly() throws Exception {
+        Object phase = createTimedPhase(new int[] {0, 10, 0, 1, 0},
+                new int[] {1200, 1300, 1400, 1600, 1800});
+        List<Object> phases = new ArrayList<>();
+        phases.add(newPhase("Cross", 8, 0, 1000));
+        phases.add(phase);
+        Object adjusted = invokeIncludePhaseGaps(phases).get(1);
+        assertEquals(1000, getPhaseStartMs(adjusted));
+        assertEquals(1600, getPhaseIntField(adjusted, "executionStartMs"));
+        assertEquals(1800, getPhaseEndMs(adjusted));
+    }
+
+    @Test
+    public void upperOnlyPhaseHasNoExecutionTime() throws Exception {
+        Object phase = createTimedPhase(new int[] {0, 0}, new int[] {200, 500});
+        assertEquals(500, getPhaseIntField(phase, "executionStartMs"));
+        assertEquals(500, getPhaseEndMs(phase));
+    }
+
+    @Test
+    public void immediateExecutionHasNoObservationAndMetadataContainsSplit() throws Exception {
+        Object phase = createTimedPhase(new int[] {1, 0}, new int[] {0, 500});
+        assertEquals(0, getPhaseIntField(phase, "executionStartMs"));
+        List<SmartCubeSolveReconstruction.MoveEvent> raw = new ArrayList<>();
+        raw.add(new SmartCubeSolveReconstruction.MoveEvent(0, 0, 0));
+        assertTrue(SmartCubeSolveReconstruction.fromRawMoves(SOLVED, raw).toJson(500)
+                .contains("\"observationMs\":0"));
+    }
+
+    private static Object createTimedPhase(int[] axes, int[] times) throws Exception {
+        Class<?> moveClass = Class.forName("com.dctimer.model.SmartCubeSolveReconstruction$PrettyMove");
+        Constructor<?> constructor = moveClass.getDeclaredConstructor(int.class, int.class,
+                int.class, int.class, int.class, int.class);
+        constructor.setAccessible(true);
+        List<Object> moves = new ArrayList<>();
+        for (int i = 0; i < axes.length; i++) {
+            moves.add(constructor.newInstance(axes[i], i % 3, i, i, times[i], times[i]));
+        }
+        Method method = SmartCubeSolveReconstruction.class.getDeclaredMethod("createPhase",
+                String.class, List.class, int.class, int.class);
+        method.setAccessible(true);
+        return method.invoke(null, "PLL", moves, 0, moves.size() - 1);
+    }
+
     private static int invokeCf4opProgress(String facelets) throws Exception {
         Method method = SmartCubeSolveReconstruction.class.getDeclaredMethod("getCf4opProgress", String.class);
         method.setAccessible(true);
