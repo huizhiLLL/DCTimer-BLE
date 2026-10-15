@@ -5118,7 +5118,9 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             tab.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
             tab.setTextColor(APP.getTextColor());
             tab.setSingleLine(true);
-            tab.setCompoundDrawablePadding(bottom ? Math.round(3 * dpi) : 0);
+            tab.setIncludeFontPadding(!bottom);
+            tab.setGravity(bottom ? Gravity.TOP | Gravity.CENTER_HORIZONTAL : Gravity.CENTER);
+            tab.setCompoundDrawablePadding(bottom ? Math.round(4 * dpi) : 0);
             Drawable icon = tab.getCompoundDrawables()[1];
             int size = bottom ? Math.round(24 * dpi) : icon.getIntrinsicHeight();
             icon.setBounds(0, 0, bottom ? size : icon.getIntrinsicWidth(), size);

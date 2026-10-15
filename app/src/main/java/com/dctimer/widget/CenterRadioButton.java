@@ -19,9 +19,17 @@ public class CenterRadioButton extends AppCompatRadioButton {
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         if (length() > 0) {
-            // 图标和文字由 TextView 的 gravity 一起居中。
             setPadding(getPaddingLeft(), 0, getPaddingRight(), 0);
             super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+            // drawableTop 位于内容顶部，需将图标与文字整体居中，不能只居中文字。
+            Drawable icon = getCompoundDrawables()[1];
+            if (icon != null && getLayout() != null) {
+                int contentHeight = icon.getBounds().height() + getCompoundDrawablePadding()
+                        + getLayout().getHeight();
+                int space = Math.max(0, getMeasuredHeight() - contentHeight);
+                setPadding(getPaddingLeft(), space / 2, getPaddingRight(), space - space / 2);
+                super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+            }
             return;
         }
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
@@ -31,7 +39,7 @@ public class CenterRadioButton extends AppCompatRadioButton {
         Drawable topDrawable = drawables[1];
         if (topDrawable != null) {
             int padding = (getMeasuredHeight() - topDrawable.getBounds().height()) / 2;
-            setPadding(getPaddingLeft(), padding, getPaddingRight(), getPaddingBottom());
+            setPadding(getPaddingLeft(), padding, getPaddingRight(), 0);
         }
     }
 
