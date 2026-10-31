@@ -1,7 +1,7 @@
 {
-  "versionCode": 233,
-  "versionName": "2.3.3",
+  "versionCode": 241,
+  "versionName": "2.4.1",
   "releaseUrl": "https://dctimer.huizhi.ink/",
   "apkUrl": "https://dctimer.huizhi.ink/assets/DCTimer-BLE-v2.3.3.apk",
-  "notes": "- 重置魔方状态加入回写操作\n- 优化 GAN Gen4 数据解析\n- 修复部分情况下 APP 崩溃问题（即虚拟魔方窗口打开时的应用切换）\n- 修复部分情况下打乱出现遮挡问题\n- 修复 WCA 分组下部分项目名称索引问题\n- 修复分段成绩的主题颜色硬编码问题"
+  "notes": "- CFOP 解法重建（依据陀螺仪）以及双层/废步识别\n- 智能魔方陀螺仪自动校准（打乱倒数第三步）\n- 导航栏位置可设置（顶/底部）\n- 背景图片拖动缩放\n- 计时加入键盘启停适配"
 }
