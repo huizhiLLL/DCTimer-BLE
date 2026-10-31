@@ -396,6 +396,7 @@
 
     <array name="item_smart">
         <item>Use method</item>
+        <item>Solution orientation basis</item>
         <item>Training orientation</item>
         <item>Scramble progress style</item>
         <item>Virtual cube size</item>

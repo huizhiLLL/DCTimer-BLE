@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 
 import static com.dctimer.APP.smartCubeSolveMethod;
+import static com.dctimer.APP.smartCubeSolveOrientation;
 
 import cs.min2phase.CubieCube;
 import cs.min2phase.Util;
@@ -81,8 +82,10 @@ public class SmartCubeSolveReconstruction {
                 status = updatePhaseStatus(status, getMethodProgress(Util.toFaceCube(cube), method));
             }
         }
+        int fallbackFrame = smartCubeSolveOrientation < 0
+                ? inferCrossOrientation(startFacelet, moves) : smartCubeSolveOrientation;
         SmartCubeReconstructionEngine.Result result = SmartCubeReconstructionEngine.reconstruct(
-                startFacelet, moves, phaseIds, inferCrossOrientation(startFacelet, moves),
+                startFacelet, moves, phaseIds, fallbackFrame,
                 gyro == null ? new ArrayList<GyroSample>() : gyro, method == METHOD_CFOP);
         List<PrettyMove> all = new ArrayList<>();
         List<Phase> phases = new ArrayList<>();

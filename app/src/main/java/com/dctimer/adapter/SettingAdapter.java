@@ -38,6 +38,7 @@ public class SettingAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     public static final int ST_DROP_TO_STOP = 12;
     public static final int ST_SENSITIVITY = 13;
     public static final int ST_SMART_GYRO_FOLLOW = 14;
+    public static final int ST_SMART_SOLVE_ORIENTATION = 15;
     public static final int ST_SMART_SCRAMBLE_PROGRESS = 16;
     public static final int ST_SMART_LAYOUT = 17;
     public static final int ST_SMART_SOLVE_METHOD = 18;
