@@ -2656,6 +2656,10 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         GanRobotSessionState.setLatestSmartCubeState(cube.getCubeState());
         if (!wasRunning && !waitingForSolveStart && !GanRobotSessionState.isRobotMoving()) {
             updateSmartCubeScrambleProgress(cube, trackScrambleDeviation ? move : -1);
+            if (smartCubeScrambleMoves.size() >= 3
+                    && smartCubeScrambleProgress == smartCubeScrambleMoves.size() - 2) {
+                maybeAutoCalibrateSmartCubeGyro(cube);
+            }
             if (isSmartCubeTrainingScramble() && smartCubeScrambleProgress == smartCubeScrambleMoves.size()
                     && timer.getTimerState() != DCTTimer.RUNNING) {
                 completeSmartCubeScramble(cube);
@@ -2683,8 +2687,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         if (canStart && (timer.getTimerState() == DCTTimer.READY || timer.getTimerState() == DCTTimer.INSPECTING)) {
             return;
         }
-        // Calibrate at the completed scramble before seeding observation samples.
-        maybeAutoCalibrateSmartCubeGyro(cube);
         cube.markScrambled();
         smartCubeScrambleProgress = smartCubeScrambleMoves.size();
         smartCubeScramblePendingMove = null;
