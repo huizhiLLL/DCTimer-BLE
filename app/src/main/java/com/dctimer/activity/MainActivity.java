@@ -5778,7 +5778,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         if (multiPhase > 0) {   //TODO 显示各分段成绩
 
         }
-        ResultDialog dialog = ResultDialog.newInstance(p, time, scramble, date, penalty, comment, solution, solveMeta, sessionManager.getPuzzle(sessionIdx));
+        ResultDialog dialog = ResultDialog.newInstance(p, time, scramble, date, penalty, comment, solution, solveMeta,
+                sessionManager.getPuzzle(sessionIdx), isSmartCubeMode());
         dialog.getArguments().putInt("resultSession",result.getSessionId());
         dialog.getArguments().putInt("resultId",id);
         dialog.show(getSupportFragmentManager(), "result");

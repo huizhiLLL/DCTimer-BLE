@@ -65,6 +65,7 @@ public class ResultDialog extends DialogFragment {
     private String solution;
     private String solveMeta;
     private int puzzle;
+    private boolean showSolution;
     private boolean expandSol;
     private boolean editingSolution;
 
@@ -84,7 +85,7 @@ public class ResultDialog extends DialogFragment {
         }
     }
 
-    public static ResultDialog newInstance(int num, String time, String scramble, String date, int penalty, String comment, String solution, String solveMeta, int puzzle) {
+    public static ResultDialog newInstance(int num, String time, String scramble, String date, int penalty, String comment, String solution, String solveMeta, int puzzle, boolean showSolution) {
         ResultDialog dialog = new ResultDialog();
         Bundle bundle = new Bundle();
         bundle.putInt("num", num);
@@ -96,6 +97,7 @@ public class ResultDialog extends DialogFragment {
         bundle.putString("solution", solution);
         bundle.putString("solveMeta", solveMeta);
         bundle.putInt("puzzle", puzzle);
+        bundle.putBoolean("showSolution", showSolution);
         dialog.setArguments(bundle);
         return dialog;
     }
@@ -112,6 +114,7 @@ public class ResultDialog extends DialogFragment {
         solution = getArguments().getString("solution");
         solveMeta = getArguments().getString("solveMeta");
         puzzle = getArguments().getInt("puzzle", 0);
+        showSolution = getArguments().getBoolean("showSolution", false);
         AlertDialog.Builder buidler = new AlertDialog.Builder(getActivity());
         final View view = getActivity().getLayoutInflater().inflate(R.layout.dialog_time, null);
         TextView tvNum = view.findViewById(R.id.tv_num);
@@ -128,6 +131,9 @@ public class ResultDialog extends DialogFragment {
         imgSolutionEdit = view.findViewById(R.id.iv_solution_edit);
         tableSolveStats = view.findViewById(R.id.table_solve_stats);
         scrollSolveStats = view.findViewById(R.id.scroll_solve_stats);
+        if (!showSolution) {
+            llSolution.setVisibility(View.GONE);
+        }
         tvNum.setText("#" + (num + 1));
         tvTime.setText(time);
         tvScramble.setText(scramble);
