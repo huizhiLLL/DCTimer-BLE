@@ -458,7 +458,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                         String.valueOf(smartCubeSize), smartCubeGyroFollow, smartCubeAutoGyroCalibration, getResources().getStringArray(R.array.opt_smart_layout)[smartCubeLayoutMode]},
                 new int[] {0, 0, 0, 0, 16<<16|(smartCubeSize/10-16), 0, 0, 0},
                 new int[] {ST_SMART_SOLVE_METHOD, ST_SMART_SOLVE_ORIENTATION, ST_SMART_TRAINING_ORIENTATION, ST_SMART_SCRAMBLE_PROGRESS, ST_SMART_CUBE_SIZE, ST_SMART_GYRO_FOLLOW, ST_SMART_AUTO_GYRO_CALIBRATION, ST_SMART_LAYOUT});
-        cells.get(smartSectionStart + 2).put("desc", getString(R.string.smart_cube_solve_orientation_desc));
         cells.get(smartSectionStart + 6).put("desc", getString(R.string.smart_cube_gyro_follow_desc));
         cells.get(smartSectionStart + 7).put("desc", getString(R.string.smart_cube_auto_gyro_calibration_desc));
         Utils.addSection(headers, cells, getString(R.string.title_scramble), getResources().getStringArray(R.array.item_scramble),
