@@ -5,7 +5,7 @@ import java.util.List;
 
 /** Session-only sensor data. Neither this recorder nor its samples enter solve metadata. */
 final class SmartCubeGyroRecorder {
-    static final int TAIL_MS = 250;
+    static final int TAIL_MS = 0;
     private double[] origin, latest;
     private double[] grip = {0,0,0,1};
     private boolean recording, overflow;

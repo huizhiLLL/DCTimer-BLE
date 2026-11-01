@@ -51,7 +51,7 @@ public class SmartCube implements Serializable {
         }
     }
 
-    /** Freeze this solve while its final posture packet is still in flight. */
+    /** Freeze this solve before asynchronous reconstruction. */
     public synchronized SmartCube snapshotForReconstruction() {
         SmartCube snapshot=new SmartCube();
         snapshot.rawData=new ArrayList<>(rawData);

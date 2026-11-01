@@ -23,24 +23,18 @@ public class SmartCubeGyroRecorderTest {
             com.dctimer.APP.smartCubeSolveMethod=original;
         }
     }
-    @Test public void finalSliceCanUseLatePostureWithoutExtendingSolveTime() {
+    @Test public void finalSliceIgnoresPostureAfterLastMove() {
         SmartCubeGyroRecorder recorder=new SmartCubeGyroRecorder();
         recorder.accept(800,0,0,0,1);
         recorder.begin(900);
-        recorder.accept(1100,1,0,0,0);
-        recorder.accept(1300,0,0,0,1); // Outside the 250 ms tail.
+        recorder.accept(1100,1,0,0,0); // After the final move arrival.
+        recorder.accept(1300,0,0,0,1);
         List<SmartCubeSolveReconstruction.MoveEvent> moves=Arrays.asList(
                 new SmartCubeSolveReconstruction.MoveEvent(4,0,0),
                 new SmartCubeSolveReconstruction.MoveEvent(13,30,30));
         List<SmartCubeSolveReconstruction.GyroSample> samples=recorder.finish(Arrays.asList(1000L,1030L),moves);
-        assertEquals(2,samples.size());
-        assertEquals(100,samples.get(1).elapsedMs);
-        SmartCubeReconstructionEngine.Result result=SmartCubeReconstructionEngine.reconstruct(
-                "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB",moves,
-                new int[]{1,1},SmartCubeOrientation.IDENTITY,samples);
-        assertEquals(1,result.tokens.size());
-        assertEquals("M2",result.tokens.get(0).text());
-        assertEquals(30,result.tokens.get(0).endMs);
+        assertEquals(1,samples.size());
+        assertEquals(-100,samples.get(0).elapsedMs);
     }
 
     @Test public void finishedSnapshotIsIndependentOfResetAndSubsequentMoves() {
