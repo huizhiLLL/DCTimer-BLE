@@ -22,8 +22,8 @@ def hasReleaseSigning = releaseSigning.every { _, value ->
     value != null && value.toString().trim()
 }
 
-def appVersionCode = 241
-def appVersionName = "2.4.1"
+def appVersionCode = 242
+def appVersionName = "2.4.2"
 def releaseApkBaseName = "DCTimer-BLE-v${appVersionName}".toString()
 def releaseApkFileName = "${releaseApkBaseName}.apk".toString()
 
