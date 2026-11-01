@@ -323,20 +323,57 @@ public class ResultDialog extends DialogFragment {
             scrollSolveStats.setVisibility(View.GONE);
             return;
         }
-        addStatsRow(table, getString(R.string.solve_stats_phase), getString(R.string.solve_stats_observation),
-                getString(R.string.solve_stats_execution), getString(R.string.solve_stats_moves),
-                getString(R.string.solve_stats_tps), true, false);
+        boolean splitTiming = hasObservationTiming(meta);
+        if (splitTiming) {
+            addStatsRow(table, getString(R.string.solve_stats_phase), getString(R.string.solve_stats_observation),
+                    getString(R.string.solve_stats_execution), getString(R.string.solve_stats_moves),
+                    getString(R.string.solve_stats_tps), true, false);
+        } else {
+            addLegacyStatsRow(table, "", getString(R.string.solve_stats_time),
+                    getString(R.string.solve_stats_moves), getString(R.string.solve_stats_tps), true, false);
+        }
         for (PhaseStat stat : stats) {
-            addStatsRow(table, stat.name, formatSplitTime(stat, true), formatSplitTime(stat, false), String.valueOf(stat.moves),
-                    formatTps(stat.moves, stat.timeMs), false, false);
+            if (splitTiming) {
+                addStatsRow(table, stat.name, formatSplitTime(stat, true), formatSplitTime(stat, false),
+                        String.valueOf(stat.moves), formatTps(stat.moves, stat.timeMs), false, false);
+            } else {
+                addLegacyStatsRow(table, stat.name, formatSeconds(stat.timeMs), String.valueOf(stat.moves),
+                        formatTps(stat.moves, stat.timeMs), false, false);
+            }
             if (stat.children != null && !stat.children.isEmpty()) {
                 for (PhaseStat child : stat.children) {
-                    addStatsRow(table, child.name, formatSplitTime(child, true), formatSplitTime(child, false), String.valueOf(child.moves),
-                            formatTps(child.moves, child.timeMs), false, true);
+                    if (splitTiming) {
+                        addStatsRow(table, child.name, formatSplitTime(child, true), formatSplitTime(child, false),
+                                String.valueOf(child.moves), formatTps(child.moves, child.timeMs), false, true);
+                    } else {
+                        addLegacyStatsRow(table, child.name, formatSeconds(child.timeMs), String.valueOf(child.moves),
+                                formatTps(child.moves, child.timeMs), false, true);
+                    }
                 }
             }
         }
         scrollSolveStats.setVisibility(expandSol ? View.VISIBLE : View.GONE);
+    }
+
+    private boolean hasObservationTiming(String meta) {
+        if (TextUtils.isEmpty(meta)) {
+            return false;
+        }
+        try {
+            JSONArray phases = new JSONObject(meta).optJSONArray("phases");
+            if (phases == null) {
+                return false;
+            }
+            for (int i = 0; i < phases.length(); i++) {
+                JSONObject phase = phases.optJSONObject(i);
+                if (phase != null && phase.has("observationMs")) {
+                    return true;
+                }
+            }
+        } catch (JSONException e) {
+            Log.w("dct", "parse solve_meta timing format failed", e);
+        }
+        return false;
     }
 
     private List<PhaseStat> parsePhaseStats(String meta) {
@@ -417,6 +454,17 @@ public class ResultDialog extends DialogFragment {
         table.addView(row);
     }
 
+    private void addLegacyStatsRow(TableLayout table, String phase, String time, String moves,
+                                   String tps, boolean header, boolean detail) {
+        TableRow row = new TableRow(getActivity());
+        row.setLayoutParams(new TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, TableLayout.LayoutParams.WRAP_CONTENT));
+        row.addView(createStatsCell(detail ? "  " + phase : phase, header, detail, 52));
+        row.addView(createStatsCell(time, header, detail, 60));
+        row.addView(createStatsCell(moves, header, detail, 40));
+        row.addView(createStatsCell(tps, header, detail, 44));
+        table.addView(row);
+    }
+
     private TextView createStatsCell(String text, boolean header, boolean detail, int minWidthDp) {
         TextView cell = new TextView(getActivity());
         cell.setLayoutParams(new TableRow.LayoutParams(TableRow.LayoutParams.WRAP_CONTENT, TableRow.LayoutParams.WRAP_CONTENT));
@@ -440,7 +488,11 @@ public class ResultDialog extends DialogFragment {
     }
 
     private String formatSplitTime(PhaseStat stat, boolean observation) {
-        if (stat.observationMs < 0) return "—";
+        if (stat.observationMs < 0) {
+            // Legacy solve_meta only stored the phase total. Preserve it in the
+            // execution column while leaving the unknown observation explicit.
+            return observation ? "—" : formatSeconds(stat.timeMs);
+        }
         return formatSeconds(observation ? stat.observationMs : stat.timeMs - stat.observationMs);
     }
 

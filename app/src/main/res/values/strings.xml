@@ -286,6 +286,7 @@
     <string name="smart_cube_solve_orientation_auto">Select automatically by CFOP cross color</string>
     <string name="smart_cube_solve_orientation_desc">Only applies to smart cubes without a gyroscope.</string>
     <string name="solve_stats_phase">Phase</string>
+    <string name="solve_stats_time">Time</string>
     <string name="solve_stats_observation">Obs(s)</string>
     <string name="solve_stats_execution">Exec(s)</string>
     <string name="solve_stats_moves">Moves</string>

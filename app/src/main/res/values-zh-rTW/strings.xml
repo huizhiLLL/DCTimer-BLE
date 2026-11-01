@@ -284,6 +284,7 @@
     <string name="smart_cube_solve_orientation_auto">根據CFOP底色自動選擇</string>
     <string name="smart_cube_solve_orientation_desc">僅作用於無陀螺儀的智能方塊。</string>
     <string name="solve_stats_phase">階段</string>
+    <string name="solve_stats_time">時間</string>
     <string name="solve_stats_observation">觀察(s)</string>
     <string name="solve_stats_execution">執行(s)</string>
     <string name="solve_stats_moves">步數</string>

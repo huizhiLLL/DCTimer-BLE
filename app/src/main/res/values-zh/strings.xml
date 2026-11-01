@@ -284,6 +284,7 @@
     <string name="smart_cube_solve_orientation_auto">根据CFOP底色自动选择</string>
     <string name="smart_cube_solve_orientation_desc">仅作用于无陀螺仪的智能魔方。</string>
     <string name="solve_stats_phase">阶段</string>
+    <string name="solve_stats_time">时间</string>
     <string name="solve_stats_observation">观察(s)</string>
     <string name="solve_stats_execution">执行(s)</string>
     <string name="solve_stats_moves">步数</string>
