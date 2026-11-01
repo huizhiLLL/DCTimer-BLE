@@ -5769,11 +5769,16 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         if (multiPhase > 0) result.calcMpMean();
         if (sortType != 0) result.sortResult();
         resAdapter.reload();
-        if (sortType == 0)
-            //rvResult.scrollToPosition(resAdapter.getCount() - 1);
-            lvResult.setSelection(resAdapter.getCount() - 1);
-        else if (sortType == SORT_LATEST_FIRST)
-            lvResult.setSelection(0);
+        lvResult.post(new Runnable() {
+            @Override
+            public void run() {
+                if (sortType == 0) {
+                    lvResult.setSelection(resAdapter.getCount() - 1);
+                } else if (sortType == SORT_LATEST_FIRST) {
+                    lvResult.setSelection(0);
+                }
+            }
+        });
         if (result.isSessionBest()) {
             Snackbar.make(frame, getString(R.string.new_session_best) + result.getBestTime(), Snackbar.LENGTH_SHORT).show();
         } else if (result.isAvgBest(0)) {
