@@ -29,12 +29,12 @@ if (-not (Test-Path -LiteralPath $notesPath)) {
 
 $markdown = Get-Content -LiteralPath $notesPath -Raw -Encoding UTF8
 $body = $markdown -replace "(?s)^---\s*(?:\r?\n).*?(?:\r?\n)---\s*", ""
-$items = foreach ($line in ($body -split "\r?\n")) {
+$items = @(foreach ($line in ($body -split "\r?\n")) {
     $item = $line.Trim()
     if ($item -match "^([-*+]|\d+\.)\s+(.*)$") {
         $Matches[2].Trim()
     }
-}
+})
 
 if (-not $items -or $items.Count -eq 0) {
     throw "no changelog list items found: $notesPath"
