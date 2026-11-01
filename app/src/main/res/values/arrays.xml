@@ -401,8 +401,8 @@
         <item>Scramble progress style</item>
         <item>Virtual cube size</item>
         <item>Gyro follows view</item>
-        <item>Layout</item>
         <item>Auto-calibrate on scramble</item>
+        <item>Layout</item>
     </array>
 
     <array name="item_scramble">

@@ -284,7 +284,7 @@
     <string name="background_clear">Clear current background</string>
     <string name="smart_cube_auto_gyro_calibration_desc">Reset orientation at the third-to-last scramble move. Hold the cube in the standard orientation.</string>
     <string name="smart_cube_solve_orientation_auto">Select automatically by CFOP cross color</string>
-    <string name="smart_cube_solve_orientation_desc">Only applies to smart cubes without a gyroscope.</string>
+    <string name="smart_cube_solve_orientation_desc">For smart cubes without a gyroscope; cubes with a gyroscope generate solutions from their actual orientation.</string>
     <string name="solve_stats_phase">Phase</string>
     <string name="solve_stats_time">Time</string>
     <string name="solve_stats_observation">Obs(s)</string>

@@ -450,17 +450,17 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         int smartSectionStart = cells.size();
         String[] smartSettingItems = getResources().getStringArray(R.array.item_smart);
         Utils.addSection(headers, cells, getString(R.string.title_smart), smartSettingItems,
-                new int[] {0, 0, 0, 0, 2, 1, 0, 1},
+                new int[] {0, 0, 0, 0, 2, 1, 1, 0},
                 new Object[] {getResources().getStringArray(R.array.opt_smart_solve_method)[smartCubeSolveMethod],
                         getSmartCubeSolveOrientationLabel(smartCubeSolveOrientation),
                         getSmartCubeOrientationLabel(smartCubeTrainingOrientation),
                         getResources().getStringArray(R.array.opt_smart_scramble_progress)[smartCubeScrambleProgressStyle],
-                        String.valueOf(smartCubeSize), smartCubeGyroFollow, getResources().getStringArray(R.array.opt_smart_layout)[smartCubeLayoutMode], smartCubeAutoGyroCalibration},
+                        String.valueOf(smartCubeSize), smartCubeGyroFollow, smartCubeAutoGyroCalibration, getResources().getStringArray(R.array.opt_smart_layout)[smartCubeLayoutMode]},
                 new int[] {0, 0, 0, 0, 16<<16|(smartCubeSize/10-16), 0, 0, 0},
-                new int[] {ST_SMART_SOLVE_METHOD, ST_SMART_SOLVE_ORIENTATION, ST_SMART_TRAINING_ORIENTATION, ST_SMART_SCRAMBLE_PROGRESS, ST_SMART_CUBE_SIZE, ST_SMART_GYRO_FOLLOW, ST_SMART_LAYOUT, ST_SMART_AUTO_GYRO_CALIBRATION});
+                new int[] {ST_SMART_SOLVE_METHOD, ST_SMART_SOLVE_ORIENTATION, ST_SMART_TRAINING_ORIENTATION, ST_SMART_SCRAMBLE_PROGRESS, ST_SMART_CUBE_SIZE, ST_SMART_GYRO_FOLLOW, ST_SMART_AUTO_GYRO_CALIBRATION, ST_SMART_LAYOUT});
         cells.get(smartSectionStart + 2).put("desc", getString(R.string.smart_cube_solve_orientation_desc));
         cells.get(smartSectionStart + 6).put("desc", getString(R.string.smart_cube_gyro_follow_desc));
-        cells.get(smartSectionStart + 8).put("desc", getString(R.string.smart_cube_auto_gyro_calibration_desc));
+        cells.get(smartSectionStart + 7).put("desc", getString(R.string.smart_cube_auto_gyro_calibration_desc));
         Utils.addSection(headers, cells, getString(R.string.title_scramble), getResources().getStringArray(R.array.item_scramble),
                 new int[] {2, 1, 1, 2, 0},
                 new Object[] {String.valueOf(scrambleSize), monoFont, showImage, "", ""},
