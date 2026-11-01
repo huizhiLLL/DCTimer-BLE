@@ -396,7 +396,7 @@
 
     <array name="item_smart">
         <item>Use method</item>
-        <item>Solution orientation basis (for cubes without a gyroscope; cubes with a gyroscope generate solutions from their actual orientation)</item>
+        <item>Solution orientation basis (for cubes without a gyroscope)</item>
         <item>Training orientation</item>
         <item>Scramble progress style</item>
         <item>Virtual cube size</item>

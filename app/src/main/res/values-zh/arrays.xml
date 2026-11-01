@@ -389,7 +389,7 @@
 
     <array name="item_smart">
         <item>使用解法</item>
-        <item>解法朝向基准（适用于无陀螺仪魔方；有陀螺仪魔方将根据实际姿态生成解法）</item>
+        <item>解法朝向基准（适用于无陀螺仪魔方）</item>
         <item>训练朝向</item>
         <item>打乱推进样式</item>
         <item>虚拟魔方大小</item>
