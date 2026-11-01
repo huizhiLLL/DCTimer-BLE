@@ -190,10 +190,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     private String smartCubeScrambleCache = "";
     private boolean smartCubeAutoGyroCalibrationDone;
     private volatile boolean smartCubeFinishing;
-    private Runnable pendingSmartCubeResult;
-    private final java.util.concurrent.ExecutorService reconstructionExecutor =
-            java.util.concurrent.Executors.newSingleThreadExecutor();
-    private int latestSmartResultId = -1;
+    private boolean pendingResultScrollToLatest;
     private final List<String> smartCubeScrambleMoves = new ArrayList<>();
     private final List<String> smartCubeScrambleDisplayMoves = new ArrayList<>();
     private final List<String> smartCubeScrambleStates = new ArrayList<>();
@@ -344,6 +341,9 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                     showScrambleView();
                 } else {
                     hideTimerPageCubeState(true);
+                }
+                if (tabHost.getCurrentTab() == 1) {
+                    schedulePendingResultScroll();
                 }
                 invalidateOptionsMenu();
             }
@@ -601,7 +601,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     @Override
     protected void onPause() {
         super.onPause();
-        finishPendingSmartCubeResult();
         clearKeyboardHold();
         timerKeysDown.clear();
         if (timer.getTimerState() == DCTTimer.RUNNING) {
@@ -625,8 +624,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
     @Override
     protected void onDestroy() {
-        finishPendingSmartCubeResult();
-        reconstructionExecutor.shutdown();
         if (backgroundAdjustDialog != null) backgroundAdjustDialog.dismiss();
         Log.w("dct", "ondestroy");
         if (inspectionAlertPlayer != null) {
@@ -2788,14 +2785,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         });
     }
 
-    private void finishPendingSmartCubeResult() {
-        Runnable finish=pendingSmartCubeResult;
-        if(finish==null) return;
-        pendingSmartCubeResult=null;
-        handler.removeCallbacks(finish);
-        finish.run();
-    }
-
     private SmartCube.StateChangedCallback cubeStateChangeCallback = new SmartCube.StateChangedCallback() {
         @Override
         public void onScrambled(SmartCube cube) {
@@ -2815,6 +2804,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 } else {
                     cube.markSolved();
                 }
+                cube.releaseReconstruction(finished);
+                finished.calcResult();
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -2822,48 +2813,21 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                         timer.count();
                         final int localTime = (int) timer.time;
                         final int timeRes = finished.getResult();
-                        finishPendingSmartCubeResult();
                         final String completedScramble = currentScramble.getScramble();
                         final boolean completedBlindfold = currentScramble.isBlindfoldScramble();
-                        final int completedSession = result.getSessionId();
                         setTimerText(StringUtils.timeToString(timeRes));
-                        // Restore navigation and page content immediately; only reconstruction waits.
                         setVisibility(true);
                         if (!wca || completedBlindfold) { penaltyTime = 0; isDNF = false; }
                         timer.setTimerState(DCTTimer.READY);
                         smartCubeFinishing=false;
-                        final int completedId=saveSmartCubeTime(timeRes, null, completedScramble);
-                        final Result.ReconstructionTarget reconstructionTarget=result.beginReconstruction(completedId);
-                        latestSmartResultId=completedId;
-                        pendingSmartCubeResult=new Runnable() {
-                            @Override public void run() {
-                                pendingSmartCubeResult=null;
-                                cube.releaseReconstruction(finished);
-                                reconstructionExecutor.execute(new Runnable() {
-                                    @Override public void run() {
-                                        finished.calcResult();
-                                        runOnUiThread(new Runnable() {
-                                            @Override public void run() {
-                                                boolean updated=result.completeReconstruction(reconstructionTarget,finished);
-                                                if (!updated || isDestroyed() || result.getSessionId()!=completedSession) return;
-                                                resAdapter.notifyDataSetChanged();
-                                                androidx.fragment.app.Fragment fragment=getSupportFragmentManager().findFragmentByTag("result");
-                                                if (fragment instanceof ResultDialog) {
-                                                    ((ResultDialog) fragment).updateReconstruction(completedSession,completedId,
-                                                            finished.getMoveSequence(),finished.getSolveMeta());
-                                                }
-                                                if (latestSmartResultId==completedId && !canStart && timer.getTimerState()==DCTTimer.READY) {
-                                                    int moveCount=finished.getReconstructedMovesCount();
-                                                    tvMulPhase.setText(String.format(Locale.getDefault(), "%d moves\n%.1f tps",moveCount,
-                                                            timeRes>0?moveCount*1000f/timeRes:0f));
-                                                }
-                                            }
-                                        });
-                                    }
-                                });
-                            }
-                        };
-                        handler.postDelayed(pendingSmartCubeResult,SmartCube.RECONSTRUCTION_TAIL_MS);
+                        Log.w("dct", "smart cube solved local=" + localTime
+                                + " device=" + timeRes
+                                + " delta=" + (localTime - timeRes));
+                        int moveCount = finished.getReconstructedMovesCount();
+                        tvMulPhase.setText(String.format(Locale.getDefault(), "%d moves\n%.1f tps", moveCount,
+                                timeRes > 0 ? moveCount * 1000f / timeRes : 0f));
+                        Log.w("dct", "成绩 "+timeRes);
+                        saveSmartCubeTime(timeRes, finished, completedScramble);
                     }
                 });
             }
@@ -5769,16 +5733,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         if (multiPhase > 0) result.calcMpMean();
         if (sortType != 0) result.sortResult();
         resAdapter.reload();
-        lvResult.post(new Runnable() {
-            @Override
-            public void run() {
-                if (sortType == 0) {
-                    lvResult.setSelection(resAdapter.getCount() - 1);
-                } else if (sortType == SORT_LATEST_FIRST) {
-                    lvResult.setSelection(0);
-                }
-            }
-        });
+        pendingResultScrollToLatest = isGlobalResultOrder(sortType);
+        schedulePendingResultScroll();
         if (result.isSessionBest()) {
             Snackbar.make(frame, getString(R.string.new_session_best) + result.getBestTime(), Snackbar.LENGTH_SHORT).show();
         } else if (result.isAvgBest(0)) {
@@ -6037,6 +5993,19 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     private void scrollResultToLatest() {
         if (resAdapter.getCount() == 0) return;
         lvResult.setSelection(sortType == SORT_LATEST_FIRST ? 0 : resAdapter.getCount() - 1);
+    }
+
+    private void schedulePendingResultScroll() {
+        if (!pendingResultScrollToLatest || lvResult == null || tabHost == null
+                || tabHost.getCurrentTab() != 1 || !isGlobalResultOrder(sortType)) return;
+        lvResult.post(new Runnable() {
+            @Override
+            public void run() {
+                if (!pendingResultScrollToLatest) return;
+                scrollResultToLatest();
+                pendingResultScrollToLatest = false;
+            }
+        });
     }
 
     private void togglePbSort(int column) {
