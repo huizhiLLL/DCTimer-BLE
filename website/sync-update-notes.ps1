@@ -42,6 +42,13 @@ if (-not $items -or $items.Count -eq 0) {
 
 $notes = ($items | ForEach-Object { "- $_" }) -join "`n"
 
+$apkUrl = "https://dctimer.huizhi.ink/assets/DCTimer-BLE-v$($update.versionName).apk"
+if ($update.PSObject.Properties.Name -contains "apkUrl") {
+    $update.apkUrl = $apkUrl
+} else {
+    $update | Add-Member -NotePropertyName "apkUrl" -NotePropertyValue $apkUrl
+}
+
 if ($update.PSObject.Properties.Name -contains "notes") {
     $update.notes = $notes
 } else {
@@ -64,4 +71,4 @@ $json = $jsonLines -join [Environment]::NewLine
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
 [System.IO.File]::WriteAllText($updatePath, $json + [Environment]::NewLine, $utf8NoBom)
 
-Write-Host "Synced update notes from $notesPath"
+Write-Host "Synced APK URL and update notes from $notesPath"

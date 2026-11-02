@@ -40,6 +40,7 @@
 - 未提供签名信息时直接报错，不生成不可分发包。
 - release APK 输出名固定为 `DCTimer-BLE-v版本号.apk`。
 - `rel.bat` 打包成功后同步 APK 到 `website/assets`，供网站直链下载使用。
+- `website/sync-update-notes.ps1` 同步更新日志时，按 `update.json` 的 `versionName` 更新 APK 下载地址；发布时同步检查首页静态下载地址与安装包一致。
 
 ### 智能魔方
 

@@ -2,6 +2,6 @@
   "versionCode": 242,
   "versionName": "2.4.2",
   "releaseUrl": "https://dctimer.huizhi.ink/",
-  "apkUrl": "https://dctimer.huizhi.ink/assets/DCTimer-BLE-v2.3.3.apk",
+  "apkUrl": "https://dctimer.huizhi.ink/assets/DCTimer-BLE-v2.4.2.apk",
   "notes": "- 修复了正常计时下历史智能魔方记录解法未显示的问题"
 }
